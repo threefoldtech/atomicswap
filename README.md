@@ -1,6 +1,8 @@
 # atomic swap tools
 
 Utilities to perform cross-chain atomic swaps.
+The swaps are based upon and compatible with [Decred atomic swaps](https://github.com/decred/atomicswap).
+This repository adds tools and support for coins and wallets not supported by the Decred atomic swap tools.
 
 ## Atomic Swaps with full clients
 
@@ -10,7 +12,7 @@ Supported wallets:
 
 Find more support coins/wallets on:
 
- + [rivine/atomicswap](https://github.com/rivine/atomicswap): atomic swap (full-client) tools to swap with BTC and various altcoins
+ + [rivine/decredatomicswap](https://github.com/rivine/decredatomicswap): atomic swap (full-client) tools to swap with BTC and various altcoins. Binaries for the original Decred Atomic swap tools are also provided here.
  + [threefoldfoundation/tfchain](https://github.com/threefoldfoundation/tfchain): atomic swap (full-client) tool (`tfchainc`) to swap with TFT
 
 ## Atomic Swaps with thin clients
@@ -21,7 +23,7 @@ Currently only the Bitcoin Electrum wallet is supported:
 
 * Bitcoin ([Electrum](https://electrum.org/))
 
-The swaps are based upon and compatible with [Decred atomic swaps](https://github.com/decred/atomicswap).
+
 
 #### Run Electrum as a daemon
 Start Electrum on testnet and create a default wallet: 
