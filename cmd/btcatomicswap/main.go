@@ -553,7 +553,7 @@ func buildContract(c *rpc.Client, args *contractArgs) (*builtContract, error) {
 		return nil, err
 	}
 
-	contractTx, contractFee, err := payTo(c, contractP2SH, btcutil.Amount(args.amount))
+	contractTx, contractFee, err := payTo(c, contractP2SH, args.amount)
 	// unsignedContract := wire.NewMsgTx(txVersion)
 	// unsignedContract.AddTxOut(wire.NewTxOut(int64(args.amount), contractP2SHPkScript))
 	// unsignedContract, contractFee, err := fundRawTransaction(c, unsignedContract, feePerKb)

@@ -290,6 +290,9 @@ func (r FutureListUnspentResult) Receive() (utxos []*UnspentOutput, err error) {
 			return nil, err
 		}
 		utxo.Address, err = btcutil.DecodeAddress(respUtxo.Address, nil)
+		if err != nil {
+			return nil, err
+		}
 		hash, err := chainhash.NewHashFromStr(respUtxo.PrevoutHash)
 		if err != nil {
 			return nil, err
@@ -327,6 +330,9 @@ type FutureBroadcastResult chan *response
 // Receive waits for the response promised by the future and returns a the feerate.
 func (r FutureBroadcastResult) Receive() (*chainhash.Hash, error) {
 	rawResponse, err := receiveFuture(r)
+	if err != nil {
+		return nil, err
+	}
 	var resp []interface{}
 	err = json.Unmarshal(rawResponse, &resp)
 	if err != nil {
