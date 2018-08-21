@@ -28,6 +28,7 @@ Currently only the Bitcoin Electrum wallet is supported:
 #### Run Electrum as a daemon
 Start Electrum on testnet and create a default wallet: 
 `./Electrum --testnet`
+
 Configure and start Electrum as a daemon :
 ```
 ./Electrum --testnet  setconfig rpcuser user
