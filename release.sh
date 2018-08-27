@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-# ensure deps
-dep ensure -v
-
 # get version from git
 version="$(git describe | cut -d '-' -f 1)"
 goversion="$(go version | cut -d' ' -f3 | cut -c 3-)"
@@ -13,9 +10,9 @@ targets='linux/amd64,linux/arm64,darwin-10.6/amd64'
 # cross compile all binaries
 for pkg in $(ls -d ./cmd/*); do
     binary="${pkg#./cmd/}"
-    if [ "$binary" == "polisatomicswap" ]; then
+    if [ "$binary" == "ethatomicswap" ]; then
         # xgo required because of CGO requirements
-        xgo -out "$binary-$version" -go "$goversion" \
+        xgo -out "$binary-$version" \
             -dest "$bindest" -targets "$targets" "$pkg"
     else
         # compile them manually ourselves, much faster
