@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -41,11 +42,12 @@ var (
 )
 
 var (
-	flagset     = flag.NewFlagSet("", flag.ExitOnError)
-	connectFlag = flagset.String("s", "localhost", "host[:port] of Electrum wallet RPC server")
-	rpcuserFlag = flagset.String("rpcuser", "", "username for wallet RPC authentication")
-	rpcpassFlag = flagset.String("rpcpass", "", "password for wallet RPC authentication")
-	testnetFlag = flagset.Bool("testnet", false, "use testnet network")
+	flagset       = flag.NewFlagSet("", flag.ExitOnError)
+	connectFlag   = flagset.String("s", "localhost", "host[:port] of Electrum wallet RPC server")
+	rpcuserFlag   = flagset.String("rpcuser", "", "username for wallet RPC authentication")
+	rpcpassFlag   = flagset.String("rpcpass", "", "password for wallet RPC authentication")
+	testnetFlag   = flagset.Bool("testnet", false, "use testnet network")
+	automatedFlag = flagset.Bool("automated", true, "Use automated/unattended version with json output")
 )
 
 // There are two directions that the atomic swap can be performed, as the
@@ -441,13 +443,6 @@ func payTo(c *rpc.Client, destination btcutil.Address, amount btcutil.Amount) (f
 	return
 }
 
-// fundRawTransaction calls the fundrawtransaction JSON-RPC method.  It is
-// implemented manually as client support is currently missing from the
-// btcd/rpcclient package.
-func fundRawTransaction(c *rpc.Client, tx *wire.MsgTx, feePerKb btcutil.Amount) (fundedTx *wire.MsgTx, fee btcutil.Amount, err error) {
-	return nil, 0, errors.New("fundRawTransaction  notimplemented")
-}
-
 // getFeePerKb queries the wallet for the current optimal fee rate per kilobyte,
 // according to config settings(static/dynamic).
 func getFeePerKb(c *rpc.Client) (feerate btcutil.Amount, err error) {
@@ -472,31 +467,36 @@ func getUnusedAddress(c *rpc.Client) (btcutil.Address, error) {
 }
 
 func promptPublishTx(c *rpc.Client, tx *wire.MsgTx, name string) error {
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Printf("Publish %s transaction? [y/N] ", name)
-		answer, err := reader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		answer = strings.TrimSpace(strings.ToLower(answer))
+	if !*automatedFlag {
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			fmt.Printf("Publish %s transaction? [y/N] ", name)
+			answer, err := reader.ReadString('\n')
+			if err != nil {
+				return err
+			}
+			answer = strings.TrimSpace(strings.ToLower(answer))
 
-		switch answer {
-		case "y", "yes":
-		case "n", "no", "":
-			return nil
-		default:
-			fmt.Println("please answer y or n")
-			continue
-		}
+			switch answer {
+			case "y", "yes":
+			case "n", "no", "":
+				return nil
+			default:
+				fmt.Println("please answer y or n")
+				continue
+			}
 
-		txHash, err := c.SendRawTransaction(tx, false)
-		if err != nil {
-			return fmt.Errorf("sendrawtransaction: %v", err)
 		}
-		fmt.Printf("Published %s transaction (%v)\n", name, txHash)
-		return nil
 	}
+
+	txHash, err := c.SendRawTransaction(tx, false)
+	if err != nil {
+		return fmt.Errorf("sendrawtransaction: %v", err)
+	}
+	if !*automatedFlag {
+		fmt.Printf("Published %s transaction (%v)\n", name, txHash)
+	}
+	return nil
 }
 
 // contractArgs specifies the common parameters used to create the initiator's
@@ -703,24 +703,47 @@ func (cmd *initiateCmd) runCommand(c *rpc.Client) error {
 	contractFeePerKb := calcFeePerKb(b.contractFee, b.contractTx.SerializeSize())
 	refundFeePerKb := calcFeePerKb(b.refundFee, b.refundTx.SerializeSize())
 
-	fmt.Printf("Secret:      %x\n", secret)
-	fmt.Printf("Secret hash: %x\n\n", secretHash)
-	fmt.Printf("Contract fee: %v (%0.8f BTC/kB)\n", b.contractFee, contractFeePerKb)
-	fmt.Printf("Refund fee:   %v (%0.8f BTC/kB)\n\n", b.refundFee, refundFeePerKb)
-	fmt.Printf("Contract (%v):\n", b.contractP2SH)
-	fmt.Printf("%x\n\n", b.contract)
 	var contractBuf bytes.Buffer
 	contractBuf.Grow(b.contractTx.SerializeSize())
 	b.contractTx.Serialize(&contractBuf)
-	fmt.Printf("Contract transaction (%v):\n", b.contractTxHash)
-	fmt.Printf("%x\n\n", contractBuf.Bytes())
 	var refundBuf bytes.Buffer
 	refundBuf.Grow(b.refundTx.SerializeSize())
 	b.refundTx.Serialize(&refundBuf)
-	fmt.Printf("Refund transaction (%v):\n", &refundTxHash)
-	fmt.Printf("%x\n\n", refundBuf.Bytes())
+	if !*automatedFlag {
+		fmt.Printf("Secret:      %x\n", secret)
+		fmt.Printf("Secret hash: %x\n\n", secretHash)
+		fmt.Printf("Contract fee: %v (%0.8f BTC/kB)\n", b.contractFee, contractFeePerKb)
+		fmt.Printf("Refund fee:   %v (%0.8f BTC/kB)\n\n", b.refundFee, refundFeePerKb)
+		fmt.Printf("Contract (%v):\n", b.contractP2SH)
+		fmt.Printf("%x\n\n", b.contract)
+		fmt.Printf("Contract transaction (%v):\n", b.contractTxHash)
+		fmt.Printf("%x\n\n", contractBuf.Bytes())
+		fmt.Printf("Refund transaction (%v):\n", &refundTxHash)
+		fmt.Printf("%x\n\n", refundBuf.Bytes())
+	} else {
+		output := struct {
+			Secret                string `json:"secret"`
+			SecretHash            string `json:"hash"`
+			ContractFee           string `json:"contractfee"`
+			Refundfee             string `json:"refundfee"`
+			ContractP2Sh          string `json:"contract"`
+			ContractTransaction   string `json:"contractTransaction"`
+			RefundTransactionHash string `json:"refundTransaction"`
+		}{
+			fmt.Sprintf("%x", secret),
+			fmt.Sprintf("%x", secretHash),
+			fmt.Sprintf("%v", b.contractFee),
+			fmt.Sprintf("%v", b.refundFee),
+			fmt.Sprintf("%v", b.contractP2SH),
+			fmt.Sprintf("%v", b.contractTxHash),
+			fmt.Sprintf("%v", &refundTxHash),
+		}
+		jsonoutput, _ := json.Marshal(output)
+		fmt.Println(string(jsonoutput))
+	}
 
 	return promptPublishTx(c, b.contractTx, "contract")
+
 }
 
 func (cmd *participateCmd) runCommand(c *rpc.Client) error {
