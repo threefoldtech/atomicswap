@@ -722,21 +722,28 @@ func (cmd *initiateCmd) runCommand(c *rpc.Client) error {
 		fmt.Printf("%x\n\n", refundBuf.Bytes())
 	} else {
 		output := struct {
-			Secret                string `json:"secret"`
-			SecretHash            string `json:"hash"`
-			ContractFee           string `json:"contractfee"`
-			Refundfee             string `json:"refundfee"`
-			ContractP2Sh          string `json:"contract"`
-			ContractTransaction   string `json:"contractTransaction"`
-			RefundTransactionHash string `json:"refundTransaction"`
+			Secret      string `json:"secret"`
+			SecretHash  string `json:"hash"`
+			ContractFee string `json:"contractfee"`
+			Refundfee   string `json:"refundfee"`
+
+			ContractP2Sh            string `json:"contractp2sh"`
+			Contract                string `json:"contract"`
+			ContractTransactionHash string `json:"contractTransactionHash"`
+			ContractTransaction     string `json:"contractTransaction"`
+			RefundTransactionHash   string `json:"refundTransactionHash"`
+			RefundTransaction       string `json:"refundTransaction"`
 		}{
 			fmt.Sprintf("%x", secret),
 			fmt.Sprintf("%x", secretHash),
 			fmt.Sprintf("%v", b.contractFee),
 			fmt.Sprintf("%v", b.refundFee),
 			fmt.Sprintf("%v", b.contractP2SH),
+			fmt.Sprintf("%x", b.contract),
 			fmt.Sprintf("%v", b.contractTxHash),
+			fmt.Sprintf("%x", contractBuf.Bytes()),
 			fmt.Sprintf("%v", &refundTxHash),
+			fmt.Sprintf("%x", refundBuf.Bytes()),
 		}
 		jsonoutput, _ := json.Marshal(output)
 		fmt.Println(string(jsonoutput))
