@@ -47,7 +47,7 @@ var (
 	rpcuserFlag   = flagset.String("rpcuser", "", "username for wallet RPC authentication")
 	rpcpassFlag   = flagset.String("rpcpass", "", "password for wallet RPC authentication")
 	testnetFlag   = flagset.Bool("testnet", false, "use testnet network")
-	automatedFlag = flagset.Bool("automated", true, "Use automated/unattended version with json output")
+	automatedFlag = flagset.Bool("automated", false, "Use automated/unattended version with json output")
 )
 
 // There are two directions that the atomic swap can be performed, as the
@@ -469,6 +469,7 @@ func getUnusedAddress(c *rpc.Client) (btcutil.Address, error) {
 func promptPublishTx(c *rpc.Client, tx *wire.MsgTx, name string) error {
 	if !*automatedFlag {
 		reader := bufio.NewReader(os.Stdin)
+	L:
 		for {
 			fmt.Printf("Publish %s transaction? [y/N] ", name)
 			answer, err := reader.ReadString('\n')
@@ -479,6 +480,7 @@ func promptPublishTx(c *rpc.Client, tx *wire.MsgTx, name string) error {
 
 			switch answer {
 			case "y", "yes":
+				break L
 			case "n", "no", "":
 				return nil
 			default:
