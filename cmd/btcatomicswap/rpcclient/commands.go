@@ -32,7 +32,8 @@ func (r FutureGetUnusedAddressResult) Receive() (btcutil.Address, error) {
 	var addr string
 	err = json.Unmarshal(res, &addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("GetUnusedAddress: " + err.Error() + ":" + string(res))
+
 	}
 
 	return btcutil.DecodeAddress(addr, &chaincfg.MainNetParams)
@@ -83,7 +84,7 @@ func (r FutureDumpPrivKeyResult) Receive() (*btcutil.WIF, error) {
 	var rawprivKeyWIF string
 	err = json.Unmarshal(res, &rawprivKeyWIF)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("DumpPrivKey:" + err.Error() + ":" + string(res))
 	}
 	//Drop the "p2pkh:" prefix
 	rawprivKeyWIF = strings.TrimPrefix(rawprivKeyWIF, "p2pkh:")
@@ -139,6 +140,9 @@ func (r FutureGetFeeRateResult) Receive() (feerate btcutil.Amount, err error) {
 
 	// Unmarshal result as a string.
 	err = json.Unmarshal(res, &feerate)
+	if err != nil {
+		err = errors.New(" GetFeeRate: " + err.Error() + ":" + string(res))
+	}
 	return
 }
 
@@ -186,6 +190,7 @@ func (r FuturePayToResult) Receive() (tx *wire.MsgTx, complete bool, err error) 
 	// Unmarshal result
 	err = json.Unmarshal(rawResp, &resp)
 	if err != nil {
+		err = errors.New("PayTo: " + err.Error() + ":" + string(rawResp))
 		return
 	}
 	complete = resp.Complete
@@ -274,6 +279,7 @@ func (r FutureListUnspentResult) Receive() (utxos []*UnspentOutput, err error) {
 	// Unmarshal result
 	err = json.Unmarshal(rawResp, &resp)
 	if err != nil {
+		err = errors.New(" ListUnspent: " + err.Error() + ":" + string(rawResp))
 		return
 	}
 	utxos = make([]*UnspentOutput, len(resp))
@@ -336,7 +342,7 @@ func (r FutureBroadcastResult) Receive() (*chainhash.Hash, error) {
 	var resp []interface{}
 	err = json.Unmarshal(rawResponse, &resp)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("Broadcast :" + err.Error() + ":" + string(rawResponse))
 	}
 	if len(resp) < 2 {
 		return nil, fmt.Errorf("Invalid response: %s", string(rawResponse))
