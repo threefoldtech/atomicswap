@@ -1060,7 +1060,7 @@ func (cmd *auditContractCmd) runOfflineCommand() error {
 			fmt.Sprintf("%v", btcutil.Amount(cmd.contractTx.TxOut[contractOut].Value)),
 			fmt.Sprintf("%v", recipientAddr),
 			fmt.Sprintf("%v", refundAddr),
-			fmt.Sprintf("%v", pushes.SecretHash[:]),
+			fmt.Sprintf("%x", pushes.SecretHash[:]),
 			"",
 		}
 
