@@ -27,7 +27,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcwallet/wallet/txrules"
-	rpc "github.com/rivine/atomicswap/cmd/btcatomicswap/rpcclient"
+	rpc "github.com/threefoldtech/atomicswap/cmd/btcatomicswap/rpcclient"
 	"golang.org/x/crypto/ripemd160"
 )
 
