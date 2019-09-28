@@ -37,6 +37,10 @@ Configure and start Electrum as a daemon :
 ./Electrum --testnet daemon
 ./Electrum --testnet daemon load_wallet
 ```
+ 
+ ## Atomic swaps withouth an external wallet process
+
+* [Stellar](https://stellar.org) based assets and Lumens: [StellarAtomicSwaps](cmd/stellaratomicswap/readme.md)
 
 ## Roadmap
 

@@ -12,9 +12,6 @@ import (
 	"strings"
 
 	"github.com/stellar/go/keypair"
-
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
 	"github.com/stellar/go/network"
 )
 
@@ -27,9 +24,6 @@ var (
 )
 var (
 	flagset       = flag.NewFlagSet("", flag.ExitOnError)
-	connectFlag   = flagset.String("s", "localhost", "host[:port] of Electrum wallet RPC server")
-	rpcuserFlag   = flagset.String("rpcuser", "", "username for wallet RPC authentication")
-	rpcpassFlag   = flagset.String("rpcpass", "", "password for wallet RPC authentication")
 	testnetFlag   = flagset.Bool("testnet", false, "use testnet network")
 	automatedFlag = flagset.Bool("automated", false, "Use automated/unattended version with json output")
 )
@@ -89,30 +83,30 @@ type initiateCmd struct {
 }
 
 type participateCmd struct {
-	cp1Addr    *btcutil.AddressPubKeyHash
-	amount     btcutil.Amount
+	cp1Addr    string
+	amount     string
 	secretHash []byte
 }
 
 type redeemCmd struct {
 	contract   []byte
-	contractTx *wire.MsgTx
+	contractTx string
 	secret     []byte
 }
 
 type refundCmd struct {
 	contract   []byte
-	contractTx *wire.MsgTx
+	contractTx string
 }
 
 type extractSecretCmd struct {
-	redemptionTx *wire.MsgTx
+	redemptionTx string
 	secretHash   []byte
 }
 
 type auditContractCmd struct {
 	contract   []byte
-	contractTx *wire.MsgTx
+	contractTx string
 }
 
 func main() {
