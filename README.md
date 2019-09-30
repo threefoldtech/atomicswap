@@ -1,4 +1,4 @@
-# atomic swap tools
+# atomic swap tools [![Build Status](https://travis-ci.org/threefoldtech/atomicswap.svg?branch=master)](https://travis-ci.org/threefoldtech/atomicswap)
 
 Utilities to perform cross-chain atomic swaps.
 The swaps are based upon and compatible with [Decred atomic swaps](https://github.com/decred/atomicswap).
