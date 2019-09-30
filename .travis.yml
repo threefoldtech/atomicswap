@@ -18,5 +18,4 @@ jobs:
       install:
         - npm install -g truffle
       script:
-        - cd cmd/ethatomicswap/contract/src
-        - truffle test
+        - make test-web3

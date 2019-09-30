@@ -26,4 +26,7 @@ test-linter:
 test-go:
 	go test -v -race $(testpkgs)
 
+test-web3:
+	cd cmd/ethatomicswap/contract/src && truffle test
+
 .PHONY: all test install test-linter test-go ethatomicswap btcatomicswap
