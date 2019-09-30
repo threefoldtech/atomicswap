@@ -34,6 +34,10 @@
   name = "github.com/btcsuite/btclog"
 
 [[constraint]]
+  name = "github.com/ethereum/go-ethereum"
+  version = "1.9.5"
+
+[[constraint]]
   branch = "master"
   name = "github.com/btcsuite/btcutil"
 
@@ -52,3 +56,15 @@
   [[prune.project]]
     name = "github.com/ethereum/go-ethereum"
     unused-packages = false
+
+  [[prune.project]]
+      name = "github.com/karalabe/usb"
+      unused-packages = false
+
+  [[prune.project]]
+      name = "github.com/cpuguy83/go-md2man"
+      unused-packages = false
+
+  [[prune.project]]
+      name = "github.com/russross/blackfriday"
+      unused-packages = false
