@@ -14,10 +14,9 @@ contract("AtomicSwap tests", accounts => {
     const [kindInitiator, kindParticipant] = [0, 1];
     const [stateEmpty, stateFilled, stateRedeemed, stateRefunded] = [0, 1, 2, 3];
 
-    // contractAccount is used only to deploy the contracts,
     // firstAccount and secondAccount are used for valid and invalid transfers,
     // and thridAccount and fourthAccount are used only for invalid transfers
-    const [contractAccount, firstAccount, secondAccount, thirdAccount, fourthAccount] = accounts;
+    const [_, firstAccount, secondAccount, thirdAccount, fourthAccount] = accounts;
 
     // atomicSwap gets assigned, before each unit test,
     // the instance of a newly deployed AtomicSwap smart contract
@@ -36,22 +35,22 @@ contract("AtomicSwap tests", accounts => {
         atomicSwap = await AtomicSwap.new();
 
         console.log("balance of accounts before test:")
-        console.log("  * balance of account #1: " + web3.eth.getBalance(firstAccount).toString());
-        console.log("  * balance of account #2: " + web3.eth.getBalance(secondAccount).toString());
-        console.log("  * balance of account #3: " + web3.eth.getBalance(thirdAccount).toString());
-        console.log("  * balance of account #4: " + web3.eth.getBalance(fourthAccount).toString());
+        console.log("  * balance of account #1: " + web3.utils.toBN(await web3.eth.getBalance(firstAccount)).toString());
+        console.log("  * balance of account #2: " + web3.utils.toBN(await web3.eth.getBalance(secondAccount)).toString());
+        console.log("  * balance of account #3: " + web3.utils.toBN(await web3.eth.getBalance(thirdAccount)).toString());
+        console.log("  * balance of account #4: " + web3.utils.toBN(await web3.eth.getBalance(fourthAccount)).toString());
     });
 
     afterEach(async () => {
         console.log("balance of accounts after test:")
-        console.log("  * balance of account #1: " + web3.eth.getBalance(firstAccount).toString());
-        console.log("  * balance of account #2: " + web3.eth.getBalance(secondAccount).toString());
-        console.log("  * balance of account #3: " + web3.eth.getBalance(thirdAccount).toString());
-        console.log("  * balance of account #4: " + web3.eth.getBalance(fourthAccount).toString());
+        console.log("  * balance of account #1: " + web3.utils.toBN(await web3.eth.getBalance(firstAccount)).toString());
+        console.log("  * balance of account #2: " + web3.utils.toBN(await web3.eth.getBalance(secondAccount)).toString());
+        console.log("  * balance of account #3: " + web3.utils.toBN(await web3.eth.getBalance(thirdAccount)).toString());
+        console.log("  * balance of account #4: " + web3.utils.toBN(await web3.eth.getBalance(fourthAccount)).toString());
     });
 
     it("should be able to redeem a participation contract", async () => {
-        const contractAmount = web3.toBigNumber(web3.toWei('0.01', 'ether'));
+        const contractAmount = web3.utils.toBN(web3.utils.toWei('0.01', 'ether'));
         const refundTime = 60;
         
         let initTimestamp;
@@ -59,20 +58,20 @@ contract("AtomicSwap tests", accounts => {
         // store initial balance of our accounts,
         // so that we can check if the locked value
         // transfers indeed between accounts 
-        let balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        let balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        let balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        let balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         let expectedBalanceFirstAccount = balanceFirstAccount;
         let expectedBalanceSecondAccount = balanceSecondAccount;
 
         // ensure our contract does not exist yet
-        var [,,,,,,,,contractState] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractState, stateEmpty, "state should equal Empty");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.state, stateEmpty, "state should equal Empty");
 
         // sanity balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -91,33 +90,23 @@ contract("AtomicSwap tests", accounts => {
             });
         
         // update balance and check it again
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.negated());
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.neg());
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
         
         // assert all contract details
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, emptySecret, "secret should still be nil");
-        assert.equal(contractInitiator, secondAccount, "initiator should equal secondAccount");
-        assert.equal(contractParticipant, firstAccount, "participant should equal firstAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindParticipant, "kind should equal Participant");
-        assert.equal(contractState, stateFilled, "state should equal Filled");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, emptySecret, "secret should still be nil");
+        assert.equal(swap.initiator, secondAccount, "initiator should equal secondAccount");
+        assert.equal(swap.participant, firstAccount, "participant should equal firstAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindParticipant, "kind should equal Participant");
+        assert.equal(swap.state, stateFilled, "state should equal Filled");
         
         // creating another contract using the same secretHash should fail
         await tryCatch(atomicSwap.participate(refundTime, secretHash, secondAccount,
@@ -175,7 +164,7 @@ contract("AtomicSwap tests", accounts => {
             });
         
         // ensure balance updates of second account
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         expectedBalanceSecondAccount = expectedBalanceSecondAccount.add(contractAmount);
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should have decreased by txn cost, " +
@@ -183,36 +172,26 @@ contract("AtomicSwap tests", accounts => {
 
         // assert state has now been updated,
         // and that our contract still exists
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, secret, "secret should no longer be nil and instead be as expected");
-        assert.equal(contractInitiator, secondAccount, "initiator should equal secondAccount");
-        assert.equal(contractParticipant, firstAccount, "participant should equal firstAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindParticipant, "kind should equal Participant");
-        assert.equal(contractState, stateRedeemed, "state should equal Redeemed");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, secret, "secret should no longer be nil and instead be as expected");
+        assert.equal(swap.initiator, secondAccount, "initiator should equal secondAccount");
+        assert.equal(swap.participant, firstAccount, "participant should equal firstAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindParticipant, "kind should equal Participant");
+        assert.equal(swap.state, stateRedeemed, "state should equal Redeemed");
 
         // last balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
     });
 
     it("should be able to redeem a participation contract even when refunding is already possible", async () => {
-        const contractAmount = web3.toBigNumber(web3.toWei('0.01', 'ether'));
+        const contractAmount = web3.utils.toBN(web3.utils.toWei('0.01', 'ether'));
         const refundTime = 1;
         
         let initTimestamp;
@@ -220,20 +199,20 @@ contract("AtomicSwap tests", accounts => {
         // store initial balance of our accounts,
         // so that we can check if the locked value
         // transfers indeed between accounts 
-        let balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        let balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        let balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        let balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         let expectedBalanceFirstAccount = balanceFirstAccount;
         let expectedBalanceSecondAccount = balanceSecondAccount;
 
         // ensure our contract does not exist yet
-        var [,,,,,,,,contractState] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractState, stateEmpty, "state should equal Empty");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.state, stateEmpty, "state should equal Empty");
 
         // sanity balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -252,11 +231,11 @@ contract("AtomicSwap tests", accounts => {
             });
         
         // update balance and check it again
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.negated());
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.neg());
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -279,43 +258,33 @@ contract("AtomicSwap tests", accounts => {
             });
         
         // ensure balance updates of second account
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         expectedBalanceSecondAccount = expectedBalanceSecondAccount.add(contractAmount);
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should have decreased by txn cost, " +
             "and should have received contract amount");
 
         // assert state and that our contract still exists
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, secret, "secret should no longer be nil and instead be as expected");
-        assert.equal(contractInitiator, secondAccount, "initiator should equal secondAccount");
-        assert.equal(contractParticipant, firstAccount, "participant should equal firstAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindParticipant, "kind should equal Participant");
-        assert.equal(contractState, stateRedeemed, "state should equal Redeemed");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, secret, "secret should no longer be nil and instead be as expected");
+        assert.equal(swap.initiator, secondAccount, "initiator should equal secondAccount");
+        assert.equal(swap.participant, firstAccount, "participant should equal firstAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindParticipant, "kind should equal Participant");
+        assert.equal(swap.state, stateRedeemed, "state should equal Redeemed");
 
         // last balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
     });
 
     it("should be able to redeem an initiation contract", async () => {
-        const contractAmount = web3.toBigNumber(web3.toWei('0.01', 'ether'));
+        const contractAmount = web3.utils.toBN(web3.utils.toWei('0.01', 'ether'));
         const refundTime = 60;
 
         let initTimestamp;
@@ -323,20 +292,20 @@ contract("AtomicSwap tests", accounts => {
         // store initial balance of our accounts,
         // so that we can check if the locked value
         // transfers indeed between accounts 
-        let balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        let balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        let balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        let balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         let expectedBalanceFirstAccount = balanceFirstAccount;
         let expectedBalanceSecondAccount = balanceSecondAccount;
 
         // ensure our contract does not exist yet
-        var [,,,,,,,,contractState] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractState, stateEmpty, "state should equal Empty");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.state, stateEmpty, "state should equal Empty");
 
         // sanity balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -355,33 +324,23 @@ contract("AtomicSwap tests", accounts => {
             });
 
         // update balance and check it again
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.negated());
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.neg());
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
         // assert all contract details
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, emptySecret, "secret should still be nil");
-        assert.equal(contractInitiator, firstAccount, "initiator should equal firstAccount");
-        assert.equal(contractParticipant, secondAccount, "participant should equal secondAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindInitiator, "kind should equal Initiator");
-        assert.equal(contractState, stateFilled, "state should equal Filled");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, emptySecret, "secret should still be nil");
+        assert.equal(swap.initiator, firstAccount, "initiator should equal firstAccount");
+        assert.equal(swap.participant, secondAccount, "participant should equal secondAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindInitiator, "kind should equal Initiator");
+        assert.equal(swap.state, stateFilled, "state should equal Filled");
         
         // creating another contract using the same secretHash should fail
         await tryCatch(atomicSwap.initiate(refundTime, secretHash, secondAccount,
@@ -439,7 +398,7 @@ contract("AtomicSwap tests", accounts => {
             });
 
         // ensure balance updates of second account
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         expectedBalanceSecondAccount = expectedBalanceSecondAccount.add(contractAmount);
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should have decreased by txn cost, " +
@@ -447,36 +406,26 @@ contract("AtomicSwap tests", accounts => {
 
         // assert state has now been updated,
         // and that our contract still exists
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, secret, "secret should no longer be nil and instead be as expected");
-        assert.equal(contractInitiator, firstAccount, "initiator should equal firstAccount");
-        assert.equal(contractParticipant, secondAccount, "participant should equal secondAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindInitiator, "kind should equal Initiator");
-        assert.equal(contractState, stateRedeemed, "state should equal Redeemed");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, secret, "secret should no longer be nil and instead be as expected");
+        assert.equal(swap.initiator, firstAccount, "initiator should equal firstAccount");
+        assert.equal(swap.participant, secondAccount, "participant should equal secondAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindInitiator, "kind should equal Initiator");
+        assert.equal(swap.state, stateRedeemed, "state should equal Redeemed");
 
         // last balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
     });
 
     it("should be able to redeem an initiation contract even when refunding is already possible", async () => {
-        const contractAmount = web3.toBigNumber(web3.toWei('0.01', 'ether'));
+        const contractAmount = web3.utils.toBN(web3.utils.toWei('0.01', 'ether'));
         const refundTime = 1;
 
         let initTimestamp;
@@ -484,20 +433,20 @@ contract("AtomicSwap tests", accounts => {
         // store initial balance of our accounts,
         // so that we can check if the locked value
         // transfers indeed between accounts 
-        let balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        let balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        let balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        let balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         let expectedBalanceFirstAccount = balanceFirstAccount;
         let expectedBalanceSecondAccount = balanceSecondAccount;
 
         // ensure our contract does not exist yet
-        var [,,,,,,,,contractState] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractState, stateEmpty, "state should equal Empty");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.state, stateEmpty, "state should equal Empty");
 
         // sanity balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -516,11 +465,11 @@ contract("AtomicSwap tests", accounts => {
             });
 
         // update balance and check it again
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.negated());
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.neg());
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -543,43 +492,33 @@ contract("AtomicSwap tests", accounts => {
             });
 
         // ensure balance updates of second account
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         expectedBalanceSecondAccount = expectedBalanceSecondAccount.add(contractAmount);
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should have decreased by txn cost, " +
             "and should have received contract amount");
 
         // assert state and that our contract still exists
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, secret, "secret should no longer be nil and instead be as expected");
-        assert.equal(contractInitiator, firstAccount, "initiator should equal firstAccount");
-        assert.equal(contractParticipant, secondAccount, "participant should equal secondAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindInitiator, "kind should equal Initiator");
-        assert.equal(contractState, stateRedeemed, "state should equal Redeemed");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, secret, "secret should no longer be nil and instead be as expected");
+        assert.equal(swap.initiator, firstAccount, "initiator should equal firstAccount");
+        assert.equal(swap.participant, secondAccount, "participant should equal secondAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindInitiator, "kind should equal Initiator");
+        assert.equal(swap.state, stateRedeemed, "state should equal Redeemed");
 
         // last balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
     });
 
     it("should be able to refund a participation contract", async () => {
-        const contractAmount = web3.toBigNumber(web3.toWei('0.01', 'ether'));
+        const contractAmount = web3.utils.toBN(web3.utils.toWei('0.01', 'ether'));
         const refundTime = 1;
         
         let initTimestamp;
@@ -587,20 +526,20 @@ contract("AtomicSwap tests", accounts => {
         // store initial balance of our accounts,
         // so that we can check if the locked value
         // transfers indeed between accounts 
-        let balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        let balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        let balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        let balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         let expectedBalanceFirstAccount = balanceFirstAccount;
         let expectedBalanceSecondAccount = balanceSecondAccount;
 
         // ensure our contract does not exist yet
-        var [,,,,,,,,contractState] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractState, stateEmpty, "state should equal Empty");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.state, stateEmpty, "state should equal Empty");
 
         // sanity balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -619,33 +558,23 @@ contract("AtomicSwap tests", accounts => {
             });
 
         // update balance and check it again
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.negated());
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.neg());
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
         // assert all contract details
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, emptySecret, "secret should still be nil");
-        assert.equal(contractInitiator, secondAccount, "initiator should equal secondAccount");
-        assert.equal(contractParticipant, firstAccount, "participant should equal firstAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindParticipant, "kind should equal Participant");
-        assert.equal(contractState, stateFilled, "state should equal Filled");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, emptySecret, "secret should still be nil");
+        assert.equal(swap.initiator, secondAccount, "initiator should equal secondAccount");
+        assert.equal(swap.participant, firstAccount, "participant should equal firstAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindParticipant, "kind should equal Participant");
+        assert.equal(swap.state, stateFilled, "state should equal Filled");
         
         await utils.sleep(refundTime * 2000);
         
@@ -672,7 +601,7 @@ contract("AtomicSwap tests", accounts => {
         await utils.sleep(1000); // refund balance updates seem to take longer for some reason
 
         // ensure balance updates of first account
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount);
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should have decreased by txn cost, " +
@@ -680,36 +609,26 @@ contract("AtomicSwap tests", accounts => {
 
         // assert state has now been updated,
         // and that our contract still exists
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, emptySecret, "secret should still be nil");
-        assert.equal(contractInitiator, secondAccount, "initiator should equal secondAccount");
-        assert.equal(contractParticipant, firstAccount, "participant should equal firstAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindParticipant, "kind should equal Participant");
-        assert.equal(contractState, stateRefunded, "state should equal Refunded");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, emptySecret, "secret should still be nil");
+        assert.equal(swap.initiator, secondAccount, "initiator should equal secondAccount");
+        assert.equal(swap.participant, firstAccount, "participant should equal firstAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindParticipant, "kind should equal Participant");
+        assert.equal(swap.state, stateRefunded, "state should equal Refunded");
 
         // last balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
     });
 
     it("should be able to refund an initiation contract", async () => {
-        const contractAmount = web3.toBigNumber(web3.toWei('0.01', 'ether'));
+        const contractAmount = web3.utils.toBN(web3.utils.toWei('0.01', 'ether'));
         const refundTime = 1;
         
         let initTimestamp;
@@ -717,20 +636,20 @@ contract("AtomicSwap tests", accounts => {
         // store initial balance of our accounts,
         // so that we can check if the locked value
         // transfers indeed between accounts 
-        let balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        let balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        let balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        let balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         let expectedBalanceFirstAccount = balanceFirstAccount;
         let expectedBalanceSecondAccount = balanceSecondAccount;
 
         // ensure our contract does not exist yet
-        var [,,,,,,,,contractState] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractState, stateEmpty, "state should equal Empty");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.state, stateEmpty, "state should equal Empty");
 
         // sanity balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
@@ -749,33 +668,23 @@ contract("AtomicSwap tests", accounts => {
             });
         
         // update balance and check it again
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
-        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.negated());
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
+        expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount.neg());
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
 
        // assert all contract details
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, emptySecret, "secret should still be nil");
-        assert.equal(contractInitiator, firstAccount, "initiator should equal firstAccount");
-        assert.equal(contractParticipant, secondAccount, "participant should equal secondAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindInitiator, "kind should equal Initiator");
-        assert.equal(contractState, stateFilled, "state should equal Filled");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, emptySecret, "secret should still be nil");
+        assert.equal(swap.initiator, firstAccount, "initiator should equal firstAccount");
+        assert.equal(swap.participant, secondAccount, "participant should equal secondAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindInitiator, "kind should equal Initiator");
+        assert.equal(swap.state, stateFilled, "state should equal Filled");
         
         await utils.sleep(refundTime * 2000);
         
@@ -801,7 +710,7 @@ contract("AtomicSwap tests", accounts => {
         await utils.sleep(1000); // refund balance updates seem to take longer for some reason
 
         // ensure balance updates of first account
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         expectedBalanceFirstAccount = expectedBalanceFirstAccount.add(contractAmount);
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should have decreased by txn cost, " +
@@ -809,30 +718,20 @@ contract("AtomicSwap tests", accounts => {
 
         // assert state has now been updated,
         // and that our contract still exists
-        var [
-            contractTime,
-            contractRefundTime,
-            contractSecretHash,
-            contractSecret,
-            contractInitiator,
-            contractParticipant,
-            contractValue,
-            contractKind,
-            contractState,
-        ] = await atomicSwap.swaps(secretHash, {gasPrice: 0});
-        assert.equal(contractSecretHash, secretHash, "secretHash should be as expected");
-        assert.equal(contractSecret, emptySecret, "secret should still be nil");
-        assert.equal(contractInitiator, firstAccount, "initiator should equal firstAccount");
-        assert.equal(contractParticipant, secondAccount, "participant should equal secondAccount");
-        assert.equal(contractValue.toString(), contractAmount.toString(), "value should equal contractAmount");
-        assert.equal(contractKind, kindInitiator, "kind should equal Initiator");
-        assert.equal(contractState, stateRefunded, "state should equal Refunded");
+        var swap = await atomicSwap.swaps(secretHash, {gasPrice: 0});
+        assert.equal(swap.secretHash, secretHash, "secretHash should be as expected");
+        assert.equal(swap.secret, emptySecret, "secret should still be nil");
+        assert.equal(swap.initiator, firstAccount, "initiator should equal firstAccount");
+        assert.equal(swap.participant, secondAccount, "participant should equal secondAccount");
+        assert.equal(swap.value.toString(), contractAmount.toString(), "value should equal contractAmount");
+        assert.equal(swap.kind, kindInitiator, "kind should equal Initiator");
+        assert.equal(swap.state, stateRefunded, "state should equal Refunded");
 
         // last balance check
-        balanceFirstAccount = web3.eth.getBalance(firstAccount);
+        balanceFirstAccount = web3.utils.toBN(await web3.eth.getBalance(firstAccount));
         assert.equal(balanceFirstAccount.toString(), expectedBalanceFirstAccount.toString(),
             "balance of first account should be as expected");
-        balanceSecondAccount = web3.eth.getBalance(secondAccount);
+        balanceSecondAccount = web3.utils.toBN(await web3.eth.getBalance(secondAccount));
         assert.equal(balanceSecondAccount.toString(), expectedBalanceSecondAccount.toString(),
             "balance of second account should be as expected");
     });
@@ -847,7 +746,7 @@ contract("AtomicSwap tests", accounts => {
     });
 
     it("shouldn't be possible to create a contract with no refundTime", async () => {
-        const contractAmount = web3.toBigNumber(web3.toWei('0.01', 'ether'));
+        const contractAmount = web3.utils.toBN(web3.utils.toWei('0.01', 'ether'));
 
         await tryCatch(atomicSwap.participate(0, secretHash, secondAccount,
             {from: firstAccount, value: contractAmount, gasPrice: 0}), errTypes.revert)
