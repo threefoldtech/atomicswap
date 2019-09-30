@@ -14,13 +14,13 @@ btcatomicswap:
 test: test-linter test-go
 
 test-linter:
-	test -z "$(shell gometalinter --vendor --disable-all \
+	test -z "$(shell golangci-lint run  --no-config --disable-all \
 		--enable=gofmt \
 		--enable=vet \
 		--enable=gosimple \
 		--enable=unconvert \
 		--enable=ineffassign \
-		--deadline=10m ./... 2>&1 | tee /dev/stderr)"
+		--deadline=10m 2>&1 | tee /dev/stderr)"
 
 test-go:
 	go test -v -race $(testpkgs)
