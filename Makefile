@@ -18,6 +18,7 @@ test-linter:
 		--enable=gofmt \
 		--enable=vet \
 		--enable=gosimple \
+		--enable=goimports \
 		--enable=unconvert \
 		--enable=ineffassign \
 		--deadline=10m 2>&1 | tee /dev/stderr)"
