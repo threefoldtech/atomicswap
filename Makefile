@@ -17,15 +17,19 @@ stellaratomicswap:
 test: test-linter test-go
 
 test-linter:
-	test -z "$(shell gometalinter --vendor --disable-all \
+	test -z "$(shell golangci-lint run  --no-config --disable-all \
 		--enable=gofmt \
 		--enable=vet \
 		--enable=gosimple \
+		--enable=goimports \
 		--enable=unconvert \
 		--enable=ineffassign \
-		--deadline=10m ./... 2>&1 | tee /dev/stderr)"
+		--deadline=10m 2>&1 | tee /dev/stderr)"
 
 test-go:
 	go test -v -race $(testpkgs)
 
-.PHONY: all test install test-linter test-go ethatomicswap btcatomicswap stellaratomicswap
+test-web3:
+	cd cmd/ethatomicswap/contract/src && truffle test
+
+.PHONY: all test install test-linter test-go ethatomicswap btcatomicswap

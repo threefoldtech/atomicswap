@@ -3,12 +3,11 @@ jobs:
     - stage: test
       language: go
       go:
-        - 1.9.x
-        - 1.10.x
+        - 1.12.x
+        - 1.13.x
       sudo: false
       install:
-        - go get -v github.com/alecthomas/gometalinter
-        - gometalinter --install
+        - curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.19.1
       script:
         - export PATH=$PATH:$HOME/gopath/bin
         - make all
@@ -19,5 +18,4 @@ jobs:
       install:
         - npm install -g truffle
       script:
-        - cd cmd/ethatomicswap/contract/src
-        - truffle test
+        - make test-web3

@@ -19,4 +19,4 @@ module.exports.tryCatch = async function(promise, errType) {
     }
 };
 
-const PREFIX = "VM Exception while processing transaction: ";
+const PREFIX = "Returned error: VM Exception while processing transaction: ";

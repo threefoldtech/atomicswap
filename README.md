@@ -1,4 +1,4 @@
-# atomic swap tools
+# atomic swap tools [![Build Status](https://travis-ci.org/threefoldtech/atomicswap.svg?branch=master)](https://travis-ci.org/threefoldtech/atomicswap)
 
 Utilities to perform cross-chain atomic swaps.
 The swaps are based upon and compatible with [Decred atomic swaps](https://github.com/decred/atomicswap).
@@ -51,4 +51,8 @@ Configure and start Electrum as a daemon :
 
 And more coins later on.
 
+## Repository Owners
 
+* Rob Van Mieghem ([@robvanmieghem](https://github.com/robvanmieghem))
+* Lee Smet ([@leesmet](https://github.com/leesmet))
+* Glen De Cauwsemaecker ([@glendc](https://github.com/glendc))
