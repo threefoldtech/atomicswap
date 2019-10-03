@@ -1,4 +1,4 @@
-testpkgs = ./cmd/ethatomicswap
+testpkgs = ./cmd/ethatomicswap ./cmd/stellaratomicswap/stellar
 BIN = $(GOPATH)/bin
 
 all: test install
@@ -10,6 +10,9 @@ ethatomicswap:
 
 btcatomicswap:
 	go build -o $(BIN)/btcatomicswap ./cmd/btcatomicswap
+
+stellaratomicswap:
+	go build -o $(BIN)/stellaratomicswap ./cmd/stellaratomicswap
 
 test: test-linter test-go
 
@@ -25,4 +28,4 @@ test-linter:
 test-go:
 	go test -v -race $(testpkgs)
 
-.PHONY: all test install test-linter test-go ethatomicswap btcatomicswap
+.PHONY: all test install test-linter test-go ethatomicswap btcatomicswap stellaratomicswap

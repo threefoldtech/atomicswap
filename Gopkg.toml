@@ -52,3 +52,11 @@
   [[prune.project]]
     name = "github.com/ethereum/go-ethereum"
     unused-packages = false
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/stellar/go"
+
+[[constraint]]
+  name = "github.com/stretchr/testify"
+  version = "1.4.0"
