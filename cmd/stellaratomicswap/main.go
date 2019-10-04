@@ -80,8 +80,9 @@ type offlineCommand interface {
 }
 
 type initiateCmd struct {
-	cp2Addr string
-	amount  string
+	InitiatorKeyPair *keypair.Full
+	cp2Addr          string
+	amount           string
 }
 
 type participateCmd struct {
@@ -144,7 +145,7 @@ func run() (showUsage bool, err error) {
 	cmdArgs := 0
 	switch args[0] {
 	case "initiate":
-		cmdArgs = 2
+		cmdArgs = 3
 	case "participate":
 		cmdArgs = 3
 	case "redeem":
@@ -183,8 +184,16 @@ func run() (showUsage bool, err error) {
 	var cmd command
 	switch args[0] {
 	case "initiate":
+		initiatorKeypair, err := keypair.Parse(args[1])
+		if err != nil {
+			return true, fmt.Errorf("invalid initiator seed: %v", err)
+		}
+		initiatorFullKeypair, ok := initiatorKeypair.(*keypair.Full)
+		if !ok {
+			return true, errors.New("invalid initiator seed")
+		}
 
-		_, err := keypair.Parse(args[2])
+		_, err = keypair.Parse(args[2])
 		if err != nil {
 			return true, fmt.Errorf("invalid participant address: %v", err)
 		}
@@ -194,7 +203,7 @@ func run() (showUsage bool, err error) {
 			return true, fmt.Errorf("failed to decode amount: %v", err)
 		}
 
-		cmd = &initiateCmd{cp2Addr: args[1], amount: args[3]}
+		cmd = &initiateCmd{InitiatorKeyPair: initiatorFullKeypair, cp2Addr: args[1], amount: args[3]}
 	}
 	err = cmd.runCommand(client)
 	return false, err
