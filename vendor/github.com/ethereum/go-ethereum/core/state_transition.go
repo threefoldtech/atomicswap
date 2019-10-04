@@ -35,7 +35,7 @@ var (
 The State Transitioning Model
 
 A state transition is a change made when a transaction is applied to the current world state
-The state transitioning model does all the necessary work to work out a valid new state root.
+The state transitioning model does all all the necessary work to work out a valid new state root.
 
 1) Nonce handling
 2) Pre pay gas
@@ -76,10 +76,10 @@ type Message interface {
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func IntrinsicGas(data []byte, contractCreation, isEIP155 bool, isEIP2028 bool) (uint64, error) {
+func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error) {
 	// Set the starting gas for the raw transaction
 	var gas uint64
-	if contractCreation && isEIP155 {
+	if contractCreation && homestead {
 		gas = params.TxGasContractCreation
 	} else {
 		gas = params.TxGas
@@ -94,14 +94,10 @@ func IntrinsicGas(data []byte, contractCreation, isEIP155 bool, isEIP2028 bool) 
 			}
 		}
 		// Make sure we don't exceed uint64 for all data combinations
-		nonZeroGas := params.TxDataNonZeroGasFrontier
-		if isEIP2028 {
-			nonZeroGas = params.TxDataNonZeroGasEIP2028
-		}
-		if (math.MaxUint64-gas)/nonZeroGas < nz {
+		if (math.MaxUint64-gas)/params.TxDataNonZeroGas < nz {
 			return 0, vm.ErrOutOfGas
 		}
-		gas += nz * nonZeroGas
+		gas += nz * params.TxDataNonZeroGas
 
 		z := uint64(len(data)) - nz
 		if (math.MaxUint64-gas)/params.TxDataZeroGas < z {
@@ -182,8 +178,8 @@ func (st *StateTransition) preCheck() error {
 }
 
 // TransitionDb will transition the state by applying the current message and
-// returning the result including the used gas. It returns an error if failed.
-// An error indicates a consensus issue.
+// returning the result including the the used gas. It returns an error if it
+// failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
 	if err = st.preCheck(); err != nil {
 		return
@@ -191,11 +187,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
-	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
 
 	// Pay intrinsic gas
-	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
+	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
 	if err != nil {
 		return nil, 0, false, err
 	}

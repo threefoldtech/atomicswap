@@ -17,14 +17,11 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 import React, {Component} from 'react';
-import {hot} from 'react-hot-loader';
 
-import withStyles from '@material-ui/core/styles/withStyles';
+import withStyles from 'material-ui/styles/withStyles';
 
-import Header from 'Header';
-import Body from 'Body';
-import {inserter as logInserter, SAME} from 'Logs';
-import {inserter as peerInserter} from 'Network';
+import Header from './Header';
+import Body from './Body';
 import {MENU} from '../common';
 import type {Content} from '../types/content';
 
@@ -39,6 +36,7 @@ import type {Content} from '../types/content';
 // of the update.
 const deepUpdate = (updater: Object, update: Object, prev: Object): $Shape<Content> => {
 	if (typeof update === 'undefined') {
+		// TODO (kurkomisi): originally this was deep copy, investigate it.
 		return prev;
 	}
 	if (typeof updater === 'function') {
@@ -77,11 +75,8 @@ const appender = <T>(limit: number, mapper = replacer) => (update: Array<T>, pre
 	...update.map(sample => mapper(sample)),
 ].slice(-limit);
 
-// defaultContent returns the initial value of the state content. Needs to be a function in order to
-// instantiate the object again, because it is used by the state, and isn't automatically cleaned
-// when a new connection is established. The state is mutated during the update in order to avoid
-// the execution of unnecessary operations (e.g. copy of the log array).
-const defaultContent: () => Content = () => ({
+// defaultContent is the initial value of the state content.
+const defaultContent: Content = {
 	general: {
 		version: null,
 		commit:  null,
@@ -89,13 +84,8 @@ const defaultContent: () => Content = () => ({
 	home:    {},
 	chain:   {},
 	txpool:  {},
-	network: {
-		peers: {
-			bundles: {},
-		},
-		diff: [],
-	},
-	system: {
+	network: {},
+	system:  {
 		activeMemory:   [],
 		virtualMemory:  [],
 		networkIngress: [],
@@ -105,14 +95,10 @@ const defaultContent: () => Content = () => ({
 		diskRead:       [],
 		diskWrite:      [],
 	},
-	logs: {
-		chunks:        [],
-		endTop:        false,
-		endBottom:     true,
-		topChanged:    SAME,
-		bottomChanged: SAME,
+	logs:    {
+		log: [],
 	},
-});
+};
 
 // updaters contains the state updater functions for each path of the state.
 //
@@ -125,7 +111,7 @@ const updaters = {
 	home:    null,
 	chain:   null,
 	txpool:  null,
-	network: peerInserter(200),
+	network: null,
 	system:  {
 		activeMemory:   appender(200),
 		virtualMemory:  appender(200),
@@ -136,7 +122,9 @@ const updaters = {
 		diskRead:       appender(200),
 		diskWrite:      appender(200),
 	},
-	logs: logInserter(5),
+	logs: {
+		log: appender(200),
+	},
 };
 
 // styles contains the constant styles of the component.
@@ -163,11 +151,10 @@ export type Props = {
 };
 
 type State = {
-	active:       string,  // active menu
-	sideBar:      boolean, // true if the sidebar is opened
-	content:      Content, // the visualized data
-	shouldUpdate: Object,  // labels for the components, which need to re-render based on the incoming message
-	server:       ?WebSocket,
+	active: string, // active menu
+	sideBar: boolean, // true if the sidebar is opened
+	content: Content, // the visualized data
+	shouldUpdate: Object, // labels for the components, which need to re-render based on the incoming message
 };
 
 // Dashboard is the main component, which renders the whole page, makes connection with the server and
@@ -178,9 +165,8 @@ class Dashboard extends Component<Props, State> {
 		this.state = {
 			active:       MENU.get('home').id,
 			sideBar:      true,
-			content:      defaultContent(),
+			content:      defaultContent,
 			shouldUpdate: {},
-			server:       null,
 		};
 	}
 
@@ -192,10 +178,10 @@ class Dashboard extends Component<Props, State> {
 	// reconnect establishes a websocket connection with the server, listens for incoming messages
 	// and tries to reconnect on connection loss.
 	reconnect = () => {
-		const host = process.env.NODE_ENV === 'production' ? window.location.host : 'localhost:8080';
-		const server = new WebSocket(`${((window.location.protocol === 'https:') ? 'wss://' : 'ws://')}${host}/api`);
+		// PROD is defined by webpack.
+		const server = new WebSocket(`${((window.location.protocol === 'https:') ? 'wss://' : 'ws://')}${PROD ? window.location.host : 'localhost:8080'}/api`);
 		server.onopen = () => {
-			this.setState({content: defaultContent(), shouldUpdate: {}, server});
+			this.setState({content: defaultContent, shouldUpdate: {}});
 		};
 		server.onmessage = (event) => {
 			const msg: $Shape<Content> = JSON.parse(event.data);
@@ -206,16 +192,8 @@ class Dashboard extends Component<Props, State> {
 			this.update(msg);
 		};
 		server.onclose = () => {
-			this.setState({server: null});
 			setTimeout(this.reconnect, 3000);
 		};
-	};
-
-	// send sends a message to the server, which can be accessed only through this function for safety reasons.
-	send = (msg: string) => {
-		if (this.state.server != null) {
-			this.state.server.send(msg);
-		}
 	};
 
 	// update updates the content corresponding to the incoming message.
@@ -248,11 +226,10 @@ class Dashboard extends Component<Props, State> {
 					active={this.state.active}
 					content={this.state.content}
 					shouldUpdate={this.state.shouldUpdate}
-					send={this.send}
 				/>
 			</div>
 		);
 	}
 }
 
-export default hot(module)(withStyles(themeStyles)(Dashboard));
+export default withStyles(themeStyles)(Dashboard);

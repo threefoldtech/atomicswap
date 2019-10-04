@@ -108,12 +108,9 @@ func makedag(ctx *cli.Context) error {
 
 func version(ctx *cli.Context) error {
 	fmt.Println(strings.Title(clientIdentifier))
-	fmt.Println("Version:", params.VersionWithMeta)
+	fmt.Println("Version:", params.Version)
 	if gitCommit != "" {
 		fmt.Println("Git Commit:", gitCommit)
-	}
-	if gitDate != "" {
-		fmt.Println("Git Commit Date:", gitDate)
 	}
 	fmt.Println("Architecture:", runtime.GOARCH)
 	fmt.Println("Protocol Versions:", eth.ProtocolVersions)

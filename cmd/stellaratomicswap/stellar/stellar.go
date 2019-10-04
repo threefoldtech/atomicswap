@@ -3,6 +3,7 @@ package stellar
 //Package stellar provides simple stellar specific functions for the stellar atomic swap
 
 import (
+	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
@@ -25,13 +26,24 @@ func createHashTxAddress(hash []byte) (address string, err error) {
 	return strkey.Encode(strkey.VersionByteHashTx, hash)
 }
 
+//GetAccount returns information for a single account
+func GetAccount(address string, client horizonclient.ClientInterface) (account *horizon.Account, err error) {
+	ar := horizonclient.AccountRequest{AccountID: address}
+	accountStruct, err := client.AccountDetail(ar)
+	if err != nil {
+		return
+	}
+	account = &accountStruct
+	return
+}
+
 //CreateHoldingAccount creates a new account to hold the atomic swap balance
 //with the signers modified to the atomic swap rules:
 //- signature of the destinee and the secret
 //- hash of a specific transaction that is present on the chain
 //    that merges the escrow account to the account that needs to withdraw
 //    and that can only be published in the future ( timeout mechanism)
-func CreateHoldingAccount(xlmAmount string, withdrawalAccount horizon.Account, counterPartyAddress string, secretHash []byte, refundTxHash []byte, network string) (createAccountTransaction txnbuild.Transaction,holdingAccountAddress string, err error) {
+func CreateHoldingAccount(xlmAmount string, withdrawalAccount *horizon.Account, counterPartyAddress string, secretHash []byte, refundTxHash []byte, network string) (createAccountTransaction txnbuild.Transaction, holdingAccountAddress string, err error) {
 	holdingKeyPair, err := GenerateKeyPair()
 	if err != nil {
 		return
@@ -40,7 +52,7 @@ func CreateHoldingAccount(xlmAmount string, withdrawalAccount horizon.Account, c
 	accountCreationOperation := txnbuild.CreateAccount{
 		Destination:   holdingAccountAddress,
 		Amount:        xlmAmount,
-		SourceAccount: &withdrawalAccount,
+		SourceAccount: withdrawalAccount,
 	}
 
 	depositorSigningOperation := txnbuild.SetOptions{
@@ -75,17 +87,17 @@ func CreateHoldingAccount(xlmAmount string, withdrawalAccount horizon.Account, c
 		MediumThreshold: txnbuild.NewThreshold(txnbuild.Threshold(2)),
 		HighThreshold:   txnbuild.NewThreshold(txnbuild.Threshold(2)),
 	}
-	createAccountTransaction=txnbuild.Transaction{
-		SourceAccount:withdrawalAccount,
-		Operations:[]txnbuild.Operation{
+	createAccountTransaction = txnbuild.Transaction{
+		SourceAccount: withdrawalAccount,
+		Operations: []txnbuild.Operation{
 			&accountCreationOperation,
-			depositorSigningOperation,
-			secretSigningOperation,
-			refundSigningOperation,
-			setSigingWeightsOperation,
+			&depositorSigningOperation,
+			&secretSigningOperation,
+			&refundSigningOperation,
+			&setSigingWeightsOperation,
 		},
-		Network:network,
-		Timebounds:txnbuild.NewInfiniteTimeout()//TODO: Use a real timeout 
+		Network:    network,
+		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
 	}
 
 	return

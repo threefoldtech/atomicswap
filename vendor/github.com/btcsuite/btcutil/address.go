@@ -188,8 +188,8 @@ func DecodeAddress(addr string, defaultNet *chaincfg.Params) (Address, error) {
 	}
 	switch len(decoded) {
 	case ripemd160.Size: // P2PKH or P2SH
-		isP2PKH := netID == defaultNet.PubKeyHashAddrID
-		isP2SH := netID == defaultNet.ScriptHashAddrID
+		isP2PKH := chaincfg.IsPubKeyHashAddrID(netID)
+		isP2SH := chaincfg.IsScriptHashAddrID(netID)
 		switch hash160 := decoded; {
 		case isP2PKH && isP2SH:
 			return nil, ErrAddressCollision

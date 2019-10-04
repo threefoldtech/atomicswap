@@ -321,13 +321,9 @@ func WriteMessageWithEncodingN(w io.Writer, msg Message, pver uint32,
 		return totalBytes, err
 	}
 
-	// Only write the payload if there is one, e.g., verack messages don't
-	// have one.
-	if len(payload) > 0 {
-		n, err = w.Write(payload)
-		totalBytes += n
-	}
-
+	// Write payload.
+	n, err = w.Write(payload)
+	totalBytes += n
 	return totalBytes, err
 }
 

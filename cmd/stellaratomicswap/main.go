@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stellar/go/clients/horizonclient"
+
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/network"
 )
@@ -55,7 +57,7 @@ func init() {
 		fmt.Println("Usage: stellaratomicswap [flags] cmd [cmd args]")
 		fmt.Println()
 		fmt.Println("Commands:")
-		fmt.Println("  initiate <participant address> <amount>")
+		fmt.Println("  initiate <initiator seed> <participant address> <amount>")
 		fmt.Println("  participate <initiator address> <amount> <secret hash>")
 		fmt.Println("  redeem <contract> <contract transaction> <secret>")
 		fmt.Println("  refund <contract> <contract transaction>")
@@ -68,7 +70,7 @@ func init() {
 }
 
 type command interface {
-	runCommand() error
+	runCommand(client horizonclient.ClientInterface) error
 }
 
 // offline commands don't require wallet RPC.
@@ -169,10 +171,20 @@ func run() (showUsage bool, err error) {
 		targetNetwork = network.TestNetworkPassphrase
 	}
 
+	var client horizonclient.ClientInterface
+	switch targetNetwork {
+	case network.PublicNetworkPassphrase:
+		client = horizonclient.DefaultPublicNetClient
+	case network.TestNetworkPassphrase:
+		client = horizonclient.DefaultTestNetClient
+
+	}
+
 	var cmd command
 	switch args[0] {
 	case "initiate":
-		_, err := keypair.Parse(args[1])
+
+		_, err := keypair.Parse(args[2])
 		if err != nil {
 			return true, fmt.Errorf("invalid participant address: %v", err)
 		}
@@ -182,9 +194,9 @@ func run() (showUsage bool, err error) {
 			return true, fmt.Errorf("failed to decode amount: %v", err)
 		}
 
-		cmd = &initiateCmd{cp2Addr: args[1], amount: args[2]}
+		cmd = &initiateCmd{cp2Addr: args[1], amount: args[3]}
 	}
-	err = cmd.runCommand()
+	err = cmd.runCommand(client)
 	return false, err
 }
 
@@ -192,7 +204,7 @@ func sha256Hash(x []byte) []byte {
 	h := sha256.Sum256(x)
 	return h[:]
 }
-func (cmd *initiateCmd) runCommand() error {
+func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	var secret [secretSize]byte
 	_, err := rand.Read(secret[:])
 	if err != nil {
