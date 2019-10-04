@@ -3,6 +3,9 @@ package stellar
 //Package stellar provides simple stellar specific functions for the stellar atomic swap
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/strkey"
@@ -43,12 +46,8 @@ func GetAccount(address string, client horizonclient.ClientInterface) (account *
 //- hash of a specific transaction that is present on the chain
 //    that merges the escrow account to the account that needs to withdraw
 //    and that can only be published in the future ( timeout mechanism)
-func CreateHoldingAccount(xlmAmount string, withdrawalAccount *horizon.Account, counterPartyAddress string, secretHash []byte, refundTxHash []byte, network string) (createAccountTransaction txnbuild.Transaction, holdingAccountAddress string, err error) {
-	holdingKeyPair, err := GenerateKeyPair()
-	if err != nil {
-		return
-	}
-	holdingAccountAddress = holdingKeyPair.Address()
+func CreateHoldingAccount(holdingAccountAddress string, xlmAmount string, withdrawalAccount *horizon.Account, counterPartyAddress string, secretHash []byte, refundTxHash []byte, network string) (createAccountTransaction txnbuild.Transaction, err error) {
+
 	accountCreationOperation := txnbuild.CreateAccount{
 		Destination:   holdingAccountAddress,
 		Amount:        xlmAmount,
@@ -100,5 +99,26 @@ func CreateHoldingAccount(xlmAmount string, withdrawalAccount *horizon.Account, 
 		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
 	}
 
+	return
+}
+
+//SubmitTransaction submits the transactio and provides a better formatted error on failure
+func SubmitTransaction(tx string, client horizonclient.ClientInterface) (txSuccess horizon.TransactionSuccess, err error) {
+
+	txSuccess, err = client.SubmitTransactionXDR(tx)
+	if err != nil {
+		he := err.(*horizonclient.Error)
+		errordetail := (he.Problem.Detail)
+		if resultcodes, err2 := he.ResultCodes(); err2 == nil {
+			errordetail = fmt.Sprintf("%s\nResultcodes:\n%s\n", errordetail, resultcodes)
+		}
+
+		errordetail = fmt.Sprintf("%sExtras:\n", errordetail)
+		for _, ex := range he.Problem.Extras {
+			errordetail = fmt.Sprintf("%s%s\n", errordetail, ex)
+		}
+
+		err = errors.New(errordetail)
+	}
 	return
 }

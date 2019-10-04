@@ -11,7 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stellar/go/txnbuild"
+
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/threefoldtech/atomicswap/cmd/stellaratomicswap/stellar"
 
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/network"
@@ -198,12 +201,12 @@ func run() (showUsage bool, err error) {
 			return true, fmt.Errorf("invalid participant address: %v", err)
 		}
 
-		_, err = strconv.ParseFloat(args[2], 64)
+		_, err = strconv.ParseFloat(args[3], 64)
 		if err != nil {
 			return true, fmt.Errorf("failed to decode amount: %v", err)
 		}
 
-		cmd = &initiateCmd{InitiatorKeyPair: initiatorFullKeypair, cp2Addr: args[1], amount: args[3]}
+		cmd = &initiateCmd{InitiatorKeyPair: initiatorFullKeypair, cp2Addr: args[2], amount: args[3]}
 	}
 	err = cmd.runCommand(client)
 	return false, err
@@ -213,6 +216,23 @@ func sha256Hash(x []byte) []byte {
 	h := sha256.Sum256(x)
 	return h[:]
 }
+func createRefundTransaction(holdingAccount txnbuild.Account, refundAccountAdress string) (refundTransaction txnbuild.Transaction) {
+
+	mergeAccountOperation := txnbuild.AccountMerge{
+		Destination:   refundAccountAdress,
+		SourceAccount: holdingAccount,
+	}
+	refundTransaction = txnbuild.Transaction{
+		Timebounds: txnbuild.NewTimebounds(int64(0), int64(0)),
+		Operations: []txnbuild.Operation{
+			&mergeAccountOperation,
+		},
+		Network:       targetNetwork,
+		SourceAccount: holdingAccount,
+	}
+	return
+}
+
 func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	var secret [secretSize]byte
 	_, err := rand.Read(secret[:])
@@ -220,15 +240,71 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 		return err
 	}
 	secretHash := sha256Hash(secret[:])
+
+	initiatoraccount, err := stellar.GetAccount(cmd.InitiatorKeyPair.Address(), client)
+	if err != nil {
+		return err
+	}
+	holdingAccountKeyPair, err := stellar.GenerateKeyPair()
+	if err != nil {
+		return fmt.Errorf("Failed to create holding account keypair: %s", err)
+	}
+	holdingAccount := initiatoraccount //Just for testing
+	_, err = holdingAccount.IncrementSequenceNumber()
+	if err != nil {
+		return err
+	}
+	initiatoraccount, err = stellar.GetAccount(cmd.InitiatorKeyPair.Address(), client)
+	if err != nil {
+		return err
+	}
+	refundTransaction := createRefundTransaction(holdingAccount, initiatoraccount.GetAccountID())
+	if err != nil {
+		return fmt.Errorf("Failed to create the refund transaction: %s", err)
+	}
+	if err = refundTransaction.Build(); err != nil {
+		return fmt.Errorf("Failed to build the refund transaction: %s", err)
+	}
+
+	refundTransactionHash, err := refundTransaction.Hash()
+	if err != nil {
+		return fmt.Errorf("Failed to Hash the refund transaction: %s", err)
+	}
+	createAccountTransaction, err := stellar.CreateHoldingAccount(holdingAccountKeyPair.Address(), cmd.amount, initiatoraccount, cmd.cp2Addr, secretHash, refundTransactionHash[:], targetNetwork)
+	if err != nil {
+		return fmt.Errorf("Failed to create the holding account transaction: %s", err)
+	}
+	txe, err := createAccountTransaction.BuildSignEncode(cmd.InitiatorKeyPair)
+	if err != nil {
+		return fmt.Errorf("Failed to sign the holding account transaction: %s", err)
+	}
+	txSuccess, err := stellar.SubmitTransaction(txe, client)
+	if err != nil {
+		return fmt.Errorf("Failed to publish the holding account creation transaction : %s", err)
+	}
+	serializedRefundTx, err := refundTransaction.Base64()
+	if err != nil {
+		return err
+	}
 	if !*automatedFlag {
+		fmt.Println(txSuccess.TransactionSuccessToString())
 		fmt.Printf("Secret:      %x\n", secret)
 		fmt.Printf("Secret hash: %x\n\n", secretHash)
+		fmt.Printf("initiator address: %s\n", initiatoraccount.GetAccountID())
+		fmt.Printf("holding account address: %s\n", holdingAccountKeyPair.Address())
+		fmt.Printf("refund transaction:\n%s\n", serializedRefundTx)
 	} else {
 		output := struct {
-			Secret     string `json:"secret"`
-			SecretHash string `json:"hash"`
+			Secret                string `json:"secret"`
+			SecretHash            string `json:"hash"`
+			InitiatorAddress      string `json:"initiator"`
+			HoldingAccountAddress string `json:"holdingaccount"`
+			RefundTransaction     string `json:"refundtransaction"`
 		}{fmt.Sprintf("%x", secret),
 			fmt.Sprintf("%x", secretHash),
+			initiatoraccount.GetAccountID(),
+			holdingAccountKeyPair.Address(),
+			serializedRefundTx,
 		}
 		jsonoutput, _ := json.Marshal(output)
 		fmt.Println(string(jsonoutput))
