@@ -13,6 +13,7 @@ import (
 
 	"github.com/stellar/go/txnbuild"
 
+	"github.com/stellar/go/clients/horizon"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/threefoldtech/atomicswap/cmd/stellaratomicswap/stellar"
 
@@ -233,6 +234,84 @@ func createRefundTransaction(holdingAccount txnbuild.Account, refundAccountAdres
 	return
 }
 
+//createHoldingAccount creates a new account to hold the atomic swap balance
+//with the signers modified to the atomic swap rules:
+//- signature of the destinee and the secret
+//- hash of a specific transaction that is present on the chain
+//    that merges the escrow account to the account that needs to withdraw
+//    and that can only be published in the future ( timeout mechanism)
+func createHoldingAccount(holdingAccountAddress string, xlmAmount string, fundingAccount *horizon.Account, network string) (createAccountTransaction txnbuild.Transaction, err error) {
+
+	accountCreationOperation := txnbuild.CreateAccount{
+		Destination:   holdingAccountAddress,
+		Amount:        xlmAmount,
+		SourceAccount: fundingAccount,
+	}
+
+	createAccountTransaction = txnbuild.Transaction{
+		SourceAccount: fundingAccount,
+		Operations: []txnbuild.Operation{
+			&accountCreationOperation,
+		},
+		Network:    network,
+		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
+	}
+
+	return
+}
+
+func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, counterPartyAddress string, secretHash []byte, refundTxHash []byte, network string) (setOptionsTransaction txnbuild.Transaction, err error) {
+
+	depositorSigningOperation := txnbuild.SetOptions{
+		Signer: &txnbuild.Signer{
+			Address: counterPartyAddress,
+			Weight:  1,
+		},
+		SourceAccount: holdingAccount,
+	}
+	secretHashAddress, err := stellar.CreateHashxAddress(secretHash)
+	if err != nil {
+		return
+	}
+	secretSigningOperation := txnbuild.SetOptions{
+		Signer: &txnbuild.Signer{
+			Address: secretHashAddress,
+			Weight:  1,
+		},
+		SourceAccount: holdingAccount,
+	}
+	refundTxHashAdddress, err := stellar.CreateHashTxAddress(refundTxHash)
+	if err != nil {
+		return
+	}
+	refundSigningOperation := txnbuild.SetOptions{
+		Signer: &txnbuild.Signer{
+			Address: refundTxHashAdddress,
+			Weight:  2,
+		},
+		SourceAccount: holdingAccount,
+	}
+	setSigingWeightsOperation := txnbuild.SetOptions{
+		MasterWeight:    txnbuild.NewThreshold(txnbuild.Threshold(uint8(0))),
+		LowThreshold:    txnbuild.NewThreshold(txnbuild.Threshold(2)),
+		MediumThreshold: txnbuild.NewThreshold(txnbuild.Threshold(2)),
+		HighThreshold:   txnbuild.NewThreshold(txnbuild.Threshold(2)),
+		SourceAccount:   holdingAccount,
+	}
+	setOptionsTransaction = txnbuild.Transaction{
+		SourceAccount: holdingAccount, //TODO: check if this can be changed to the fundingaccount
+		Operations: []txnbuild.Operation{
+			&depositorSigningOperation,
+			&secretSigningOperation,
+			&refundSigningOperation,
+			&setSigingWeightsOperation,
+		},
+		Network:    network,
+		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
+	}
+
+	return
+}
 func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	var secret [secretSize]byte
 	_, err := rand.Read(secret[:])
@@ -249,28 +328,8 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	if err != nil {
 		return fmt.Errorf("Failed to create holding account keypair: %s", err)
 	}
-	holdingAccount := initiatoraccount //Just for testing
-	_, err = holdingAccount.IncrementSequenceNumber()
-	if err != nil {
-		return err
-	}
-	initiatoraccount, err = stellar.GetAccount(cmd.InitiatorKeyPair.Address(), client)
-	if err != nil {
-		return err
-	}
-	refundTransaction := createRefundTransaction(holdingAccount, initiatoraccount.GetAccountID())
-	if err != nil {
-		return fmt.Errorf("Failed to create the refund transaction: %s", err)
-	}
-	if err = refundTransaction.Build(); err != nil {
-		return fmt.Errorf("Failed to build the refund transaction: %s", err)
-	}
 
-	refundTransactionHash, err := refundTransaction.Hash()
-	if err != nil {
-		return fmt.Errorf("Failed to Hash the refund transaction: %s", err)
-	}
-	createAccountTransaction, err := stellar.CreateHoldingAccount(holdingAccountKeyPair.Address(), cmd.amount, initiatoraccount, cmd.cp2Addr, secretHash, refundTransactionHash[:], targetNetwork)
+	createAccountTransaction, err := createHoldingAccount(holdingAccountKeyPair.Address(), cmd.amount, initiatoraccount, targetNetwork)
 	if err != nil {
 		return fmt.Errorf("Failed to create the holding account transaction: %s", err)
 	}
@@ -281,6 +340,43 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	txSuccess, err := stellar.SubmitTransaction(txe, client)
 	if err != nil {
 		return fmt.Errorf("Failed to publish the holding account creation transaction : %s", err)
+	}
+	//Create the refund transaction
+
+	holdingAccount, err := stellar.GetAccount(holdingAccountKeyPair.Address(), client)
+	if err != nil {
+		return err
+	}
+	_, err = holdingAccount.IncrementSequenceNumber()
+	if err != nil {
+		return err
+	}
+	refundTransaction := createRefundTransaction(holdingAccount, initiatoraccount.GetAccountID())
+	if err != nil {
+		return fmt.Errorf("Failed to create the refund transaction: %s", err)
+	}
+	if err = refundTransaction.Build(); err != nil {
+		return fmt.Errorf("Failed to build the refund transaction: %s", err)
+	}
+	holdingAccount, err = stellar.GetAccount(holdingAccountKeyPair.Address(), client)
+	if err != nil {
+		return err
+	}
+	refundTransactionHash, err := refundTransaction.Hash()
+	if err != nil {
+		return fmt.Errorf("Failed to Hash the refund transaction: %s", err)
+	}
+	setSigningOptionsTransaction, err := createHoldingAccountSigningTransaction(holdingAccount, cmd.cp2Addr, secretHash, refundTransactionHash[:], targetNetwork)
+	if err != nil {
+		return fmt.Errorf("Failed to create the signing options transaction: %s", err)
+	}
+	txe, err = setSigningOptionsTransaction.BuildSignEncode(holdingAccountKeyPair)
+	if err != nil {
+		return fmt.Errorf("Failed to sign the signing options transaction: %s", err)
+	}
+	txSuccess, err = stellar.SubmitTransaction(txe, client)
+	if err != nil {
+		return fmt.Errorf("Failed to publish the signing options transaction : %s", err)
 	}
 	serializedRefundTx, err := refundTransaction.Base64()
 	if err != nil {
@@ -309,5 +405,5 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 		jsonoutput, _ := json.Marshal(output)
 		fmt.Println(string(jsonoutput))
 	}
-	return errors.New("Not implemented yet")
+	return nil
 }
