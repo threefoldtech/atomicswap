@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -62,7 +63,7 @@ func init() {
 		fmt.Println()
 		fmt.Println("Commands:")
 		fmt.Println("  initiate <initiator seed> <participant address> <amount>")
-		fmt.Println("  participate <initiator address> <amount> <secret hash>")
+		fmt.Println("  participate <participant seed> <initiator address> <amount> <secret hash>")
 		fmt.Println("  redeem <contract> <contract transaction> <secret>")
 		fmt.Println("  refund <contract> <contract transaction>")
 		fmt.Println("  extractsecret <redemption transaction> <secret hash>")
@@ -91,6 +92,7 @@ type initiateCmd struct {
 
 type participateCmd struct {
 	cp1Addr    string
+	cp2Addr    *keypair.Full
 	amount     string
 	secretHash []byte
 }
@@ -151,7 +153,7 @@ func run() (showUsage bool, err error) {
 	case "initiate":
 		cmdArgs = 3
 	case "participate":
-		cmdArgs = 3
+		cmdArgs = 4
 	case "redeem":
 		cmdArgs = 3
 	case "refund":
@@ -208,6 +210,34 @@ func run() (showUsage bool, err error) {
 		}
 
 		cmd = &initiateCmd{InitiatorKeyPair: initiatorFullKeypair, cp2Addr: args[2], amount: args[3]}
+	case "participate":
+		participatorKeypair, err := keypair.Parse(args[1])
+		if err != nil {
+			return true, fmt.Errorf("invalid participator seed: %v", err)
+		}
+		participatorFullKeypair, ok := participatorKeypair.(*keypair.Full)
+		if !ok {
+			return true, errors.New("invalid participator seed")
+		}
+
+		_, err = keypair.Parse(args[2])
+		if err != nil {
+			return true, fmt.Errorf("invalid initiator address: %v", err)
+		}
+
+		_, err = strconv.ParseFloat(args[3], 64)
+		if err != nil {
+			return true, fmt.Errorf("failed to decode amount: %v", err)
+		}
+
+		secretHash, err := hex.DecodeString(args[4])
+		if err != nil {
+			return true, errors.New("secret hash must be hex encoded")
+		}
+		if len(secretHash) != sha256.Size {
+			return true, errors.New("secret hash has wrong size")
+		}
+		cmd = &participateCmd{cp2Addr: participatorFullKeypair, cp1Addr: args[2], amount: args[3], secretHash: secretHash}
 	}
 	err = cmd.runCommand(client)
 	return false, err
@@ -341,8 +371,10 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	if err != nil {
 		return fmt.Errorf("Failed to publish the holding account creation transaction : %s", err)
 	}
-	//Create the refund transaction
+	//TODO: print the holding account private key in case of an error further down this function
+	//to recover the funds
 
+	//Create the refund transaction
 	holdingAccount, err := stellar.GetAccount(holdingAccountKeyPair.Address(), client)
 	if err != nil {
 		return err
@@ -358,6 +390,7 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	if err = refundTransaction.Build(); err != nil {
 		return fmt.Errorf("Failed to build the refund transaction: %s", err)
 	}
+	// Set the atomic swap signing conditions on the holding account
 	holdingAccount, err = stellar.GetAccount(holdingAccountKeyPair.Address(), client)
 	if err != nil {
 		return err
@@ -405,5 +438,9 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 		jsonoutput, _ := json.Marshal(output)
 		fmt.Println(string(jsonoutput))
 	}
+	return nil
+}
+
+func (cmd *participateCmd) runCommand(client horizonclient.ClientInterface) error {
 	return nil
 }
