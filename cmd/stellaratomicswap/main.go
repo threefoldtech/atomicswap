@@ -67,7 +67,7 @@ func init() {
 		fmt.Println("  redeem <contract> <contract transaction> <secret>")
 		fmt.Println("  refund <contract> <contract transaction>")
 		fmt.Println("  extractsecret <redemption transaction> <secret hash>")
-		fmt.Println("  auditcontract <contract> <contract transaction>")
+		fmt.Println("  auditcontract <holdingAccountAdress>")
 		fmt.Println()
 		fmt.Println("Flags:")
 		flagset.PrintDefaults()
@@ -114,8 +114,8 @@ type extractSecretCmd struct {
 }
 
 type auditContractCmd struct {
-	contract   []byte
-	contractTx string
+	contract             []byte
+	holdingAccountAdress string
 }
 
 func main() {
@@ -238,6 +238,13 @@ func run() (showUsage bool, err error) {
 			return true, errors.New("secret hash has wrong size")
 		}
 		cmd = &participateCmd{participatorKeyPair: participatorFullKeypair, cp1Addr: args[2], amount: args[3], secretHash: secretHash}
+	case "auditcontract":
+		_, err = keypair.Parse(args[1])
+		if err != nil {
+			return true, fmt.Errorf("invalid holding account address: %v", err)
+		}
+		cmd = &auditContractCmd{holdingAccountAdress: args[1]}
+
 	}
 	err = cmd.runCommand(client)
 	return false, err
@@ -506,5 +513,9 @@ func (cmd *participateCmd) runCommand(client horizonclient.ClientInterface) erro
 		jsonoutput, _ := json.Marshal(output)
 		fmt.Println(string(jsonoutput))
 	}
+	return nil
+}
+
+func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) error {
 	return nil
 }
