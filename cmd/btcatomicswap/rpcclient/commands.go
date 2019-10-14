@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -333,23 +332,16 @@ func (c *Client) ListUnspent() ([]*UnspentOutput, error) {
 // a broadcast RPC invocation (or an applicable error).
 type FutureBroadcastResult chan *response
 
-// Receive waits for the response promised by the future and returns a the feerate.
+// Receive waits for the response promised by the future and returns a the transactionhash.
 func (r FutureBroadcastResult) Receive() (*chainhash.Hash, error) {
 	rawResponse, err := receiveFuture(r)
 	if err != nil {
 		return nil, err
 	}
-	var resp []interface{}
-	err = json.Unmarshal(rawResponse, &resp)
+	var txID string
+	err = json.Unmarshal(rawResponse, &txID)
 	if err != nil {
 		return nil, errors.New("Broadcast :" + err.Error() + ":" + string(rawResponse))
-	}
-	if len(resp) < 2 {
-		return nil, fmt.Errorf("Invalid response: %s", string(rawResponse))
-	}
-	txID, ok := resp[1].(string)
-	if !ok {
-		return nil, fmt.Errorf("Invalid response: %s", string(rawResponse))
 	}
 	return chainhash.NewHashFromStr(txID)
 }
@@ -410,19 +402,4 @@ func init() {
 	RegisterCmd("payto", (*PayToCmd)(nil), true)
 	RegisterCmd("listunspent", (*ListUnspentCmd)(nil), false)
 	RegisterCmd("broadcast", (*BroadcastCmd)(nil), false)
-}
-
-//-----------------------
-// Btc-Core compatibility
-//-----------------------
-
-// SignRawTransaction signs inputs for the passed transaction and returns the
-// signed transaction as well as whether or not all inputs are now signed.
-//
-// This function assumes the RPC server already knows the input transactions and
-// private keys for the passed transaction which needs to be signed and uses the
-// default signature hash type.  Use one of the SignRawTransaction# variants to
-// specify that information if needed.
-func (c *Client) SignRawTransaction(tx *wire.MsgTx) (*wire.MsgTx, bool, error) {
-	return nil, false, errors.New("SignRawTransaction is not implemented")
 }

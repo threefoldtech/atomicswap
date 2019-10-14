@@ -74,6 +74,7 @@ var (
 
 func init() {
 	flagset.Usage = func() {
+		fmt.Println("Atomic swaps for Bitcoin using the Electrum wallet")
 		fmt.Println("Usage: btcatomicswap [flags] cmd [cmd args]")
 		fmt.Println()
 		fmt.Println("Commands:")
