@@ -70,7 +70,7 @@ func init() {
 		fmt.Println("  initiate <initiator seed> <participant address> <amount>")
 		fmt.Println("  participate <participant seed> <initiator address> <amount> <secret hash>")
 		fmt.Println("  redeem <contract> <contract transaction> <secret>")
-		fmt.Println("  refund <contract> <contract transaction>")
+		fmt.Println("  refund <refund transaction>")
 		fmt.Println("  extractsecret <redemption transaction> <secret hash>")
 		fmt.Println("  auditcontract <holdingAccountAdress> < refund transaction>")
 		fmt.Println()
@@ -109,8 +109,7 @@ type redeemCmd struct {
 }
 
 type refundCmd struct {
-	contract   []byte
-	contractTx string
+	refundTx txnbuild.Transaction
 }
 
 type extractSecretCmd struct {
@@ -162,7 +161,7 @@ func run() (showUsage bool, err error) {
 	case "redeem":
 		cmdArgs = 3
 	case "refund":
-		cmdArgs = 2
+		cmdArgs = 1
 	case "extractsecret":
 		cmdArgs = 2
 	case "auditcontract":
@@ -253,6 +252,13 @@ func run() (showUsage bool, err error) {
 			return true, fmt.Errorf("failed to decode refund transaction: %v", err)
 		}
 		cmd = &auditContractCmd{holdingAccountAdress: args[1], refundTx: refundTransaction}
+	case "refund":
+
+		refundTransaction, err := txnbuild.TransactionFromXDR(args[1])
+		if err != nil {
+			return true, fmt.Errorf("failed to decode refund transaction: %v", err)
+		}
+		cmd = &refundCmd{refundTx: refundTransaction}
 
 	}
 	err = cmd.runCommand(client)
@@ -621,7 +627,7 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 		fmt.Printf("Contract address:        %v\n", cmd.holdingAccountAdress)
 		fmt.Printf("Contract value:          %v\n", balance)
 		fmt.Printf("Recipient address:       %v\n", recipientAddress)
-		fmt.Printf("Author's refund address: %v\n\n", refundAddress)
+		fmt.Printf("Refund address: %v\n\n", refundAddress)
 
 		fmt.Printf("Secret hash: %x\n\n", secretHash)
 
@@ -655,4 +661,19 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 		fmt.Println(string(jsonoutput))
 	}
 	return nil
+}
+
+func (cmd *refundCmd) runCommand(client horizonclient.ClientInterface) error {
+	txe, err := cmd.refundTx.Base64()
+	if err != nil {
+		return err
+	}
+	result, err := stellar.SubmitTransaction(txe, client)
+	if err != nil {
+		return err
+	}
+	if !*automatedFlag {
+
+		fmt.Println(result.TransactionSuccessToString)
+	}
 }
