@@ -28,6 +28,7 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcwallet/wallet/txrules"
 	rpc "github.com/threefoldtech/atomicswap/cmd/btcatomicswap/rpcclient"
+	"github.com/threefoldtech/atomicswap/timings"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -689,7 +690,7 @@ func (cmd *initiateCmd) runCommand(c *rpc.Client) error {
 
 	// locktime after 500,000,000 (Tue Nov  5 00:53:20 1985 UTC) is interpreted
 	// as a unix time rather than a block height.
-	locktime := time.Now().Add(48 * time.Hour).Unix()
+	locktime := time.Now().Add(timings.LockTime).Unix()
 
 	b, err := buildContract(c, &contractArgs{
 		them:       cmd.cp2Addr,

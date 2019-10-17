@@ -22,6 +22,7 @@ import (
 	hprotocol "github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/txnbuild"
 	"github.com/threefoldtech/atomicswap/cmd/stellaratomicswap/stellar"
+	"github.com/threefoldtech/atomicswap/timings"
 
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/network"
@@ -305,8 +306,9 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 		Destination:   refundAccountAdress,
 		SourceAccount: holdingAccount,
 	}
+	locktime := time.Now().Add(timings.LockTime).Unix()
 	refundTransaction = txnbuild.Transaction{
-		Timebounds: txnbuild.NewTimebounds(int64(0), int64(0)),
+		Timebounds: txnbuild.NewTimebounds(locktime, int64(0)),
 		Operations: []txnbuild.Operation{
 			&mergeAccountOperation,
 		},
