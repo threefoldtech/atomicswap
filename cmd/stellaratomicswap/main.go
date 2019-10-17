@@ -292,7 +292,7 @@ func sha256Hash(x []byte) []byte {
 	h := sha256.Sum256(x)
 	return h[:]
 }
-func createRefundTransaction(holdingAccountAddress string, refundAccountAdress string, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
+func createRefundTransaction(holdingAccountAddress string, refundAccountAdress string, locktime time.Time, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
 	holdingAccount, err := stellar.GetAccount(holdingAccountAddress, client)
 	if err != nil {
 		return
@@ -306,9 +306,8 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 		Destination:   refundAccountAdress,
 		SourceAccount: holdingAccount,
 	}
-	locktime := time.Now().Add(timings.LockTime).Unix()
 	refundTransaction = txnbuild.Transaction{
-		Timebounds: txnbuild.NewTimebounds(locktime, int64(0)),
+		Timebounds: txnbuild.NewTimebounds(locktime.Unix(), int64(0)),
 		Operations: []txnbuild.Operation{
 			&mergeAccountOperation,
 		},
@@ -443,7 +442,7 @@ func setHoldingAccountSigningOptions(holdingAccountKeyPair *keypair.Full, counte
 	}
 	return
 }
-func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, counterPartyAddress string, xlmAmount string, secretHash []byte, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
+func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, counterPartyAddress string, xlmAmount string, secretHash []byte, locktime time.Time, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
 
 	holdingAccountAddress := holdingAccountKeyPair.Address()
 	err = createHoldingAccount(holdingAccountAddress, xlmAmount, fundingKeyPair, targetNetwork, client)
@@ -451,7 +450,7 @@ func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccount
 		return
 	}
 
-	refundTransaction, err = createRefundTransaction(holdingAccountAddress, fundingKeyPair.Address(), client)
+	refundTransaction, err = createRefundTransaction(holdingAccountAddress, fundingKeyPair.Address(), locktime, client)
 	if err != nil {
 		return
 	}
@@ -480,7 +479,8 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	//TODO: print the holding account private key in case of an error further down this function
 	//to recover the funds
 
-	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.InitiatorKeyPair, holdingAccountKeyPair, cmd.cp2Addr, cmd.amount, secretHash, client)
+	locktime := time.Now().Add(timings.LockTime)
+	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.InitiatorKeyPair, holdingAccountKeyPair, cmd.cp2Addr, cmd.amount, secretHash, locktime, client)
 	if err != nil {
 		return err
 	}
@@ -525,7 +525,8 @@ func (cmd *participateCmd) runCommand(client horizonclient.ClientInterface) erro
 	//TODO: print the holding account private key in case of an error further down this function
 	//to recover the funds
 
-	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.participatorKeyPair, holdingAccountKeyPair, cmd.cp1Addr, cmd.amount, cmd.secretHash, client)
+	locktime := time.Now().Add(timings.LockTime / 2)
+	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.participatorKeyPair, holdingAccountKeyPair, cmd.cp1Addr, cmd.amount, cmd.secretHash, locktime, client)
 	if err != nil {
 		return err
 	}
@@ -558,7 +559,7 @@ func (cmd *participateCmd) runCommand(client horizonclient.ClientInterface) erro
 func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) error {
 	holdingAccount, err := client.AccountDetail(horizonclient.AccountRequest{AccountID: cmd.holdingAccountAdress})
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting the holding account details: %v", err)
 	}
 	balance, err := holdingAccount.GetNativeBalance() //TODO: modify for other assets
 	if err != nil {
@@ -719,18 +720,18 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 		Network:       targetNetwork,
 		SourceAccount: holdingAccount,
 	}
+
+	err = redeemTransaction.Build()
+	if err != nil {
+		return fmt.Errorf("Unable to build the transaction: %v", err)
+	}
 	err = redeemTransaction.SignHashX(cmd.secret)
 	if err != nil {
 		return fmt.Errorf("Unable to sign with the secret:%v", err)
 	}
-
 	err = redeemTransaction.Sign(cmd.ReceiverKeyPair)
 	if err != nil {
 		return fmt.Errorf("Unable to sign with the receiver keypair:%v", err)
-	}
-
-	if err = redeemTransaction.Build(); err != nil {
-		return fmt.Errorf("Failed to build the refund transaction: %s", err)
 	}
 
 	txe, err := redeemTransaction.Base64()

@@ -760,7 +760,8 @@ func (cmd *initiateCmd) runCommand(c *rpc.Client) error {
 func (cmd *participateCmd) runCommand(c *rpc.Client) error {
 	// locktime after 500,000,000 (Tue Nov  5 00:53:20 1985 UTC) is interpreted
 	// as a unix time rather than a block height.
-	locktime := time.Now().Add(24 * time.Hour).Unix()
+
+	locktime := time.Now().Add(timings.LockTime / 2).Unix()
 
 	b, err := buildContract(c, &contractArgs{
 		them:       cmd.cp1Addr,
@@ -1035,7 +1036,7 @@ func (cmd *auditContractCmd) runOfflineCommand() error {
 		fmt.Printf("Contract address:        %v\n", contractAddr)
 		fmt.Printf("Contract value:          %v\n", btcutil.Amount(cmd.contractTx.TxOut[contractOut].Value))
 		fmt.Printf("Recipient address:       %v\n", recipientAddr)
-		fmt.Printf("Author's refund address: %v\n\n", refundAddr)
+		fmt.Printf("Refund address: %v\n\n", refundAddr)
 
 		fmt.Printf("Secret hash: %x\n\n", pushes.SecretHash[:])
 
