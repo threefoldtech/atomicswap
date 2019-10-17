@@ -1,6 +1,6 @@
-# Stellar atomic swap walkthrough
+# atomic swap ending in a refund walkthrough
 
-A walkthrough of an atomic swap of lumen and bitcoin using the the bitcoin Electrum thin client.
+A walkthrough of an atomic swap of lumen and bitcoin using the the bitcoin Electrum thin client ending in a refund.
 
 This example is a walkthrough of an actual atomic swap on the threefold and bitcoin testnets.
 
@@ -139,4 +139,24 @@ Secret hash: 4c6d4a1493c03c45ae259d3b3eaba98aab2b37c8c10bc93d9db77b577381adcd
 
 Locktime: 1970-01-01 00:00:00 +0000 UTC
 Refund time lock has expired
+```
+
+## refund
+
+In case Bob does not withraw the stellar tokens and as such does not share the secret, Alice can withdraw her funds in the holding account.
+command:`stellaratomicswap [-testnet] refund refundTransaction`
+
+Bob can reclaim his bitcoins as well:
+
+command:`btcatomicswap [-testnet] refund  contract contractTransaction`
+
+```sh
+./btcatomicswap --testnet --rpcuser=user --rpcpass=pass  -s  "localhost:7777" refund 6382012088a8204c6d4a1493c03c45ae259d3b3eaba98aab2b37c8c10bc93d9db77b577381adcd8876a914cf45fce54ebfcd30681d99fdf060e2ab56478888670471eca65db17576a914cf45fce54ebfcd30681d99fdf060e2ab564788886888ac 020000000140f64f5e25a0571cd8fae3481586750f36237db1a92b710a8f9cea3b892a40db010000006b4830450221009d1240ae9cc0f5ffd1cc85743d18ac5bbcb505923aa438a9f35dd0243a98940302206a67579137976c5fcc7ee8658a88a73bf7d0666537e9c22ef84ff8b2716374e60121034ed8e2048cabfdb701b593045ce7314acfdbeeeffc7cde5027e31af8d7dab7c8fdffffff0283552800000000001976a9141388fd5a6faba38da249cbdd92d8951547298e9a88ac1f4bbc000000000017a9142e7de42ec6ebb700cba09eb743b543408ff1fca7876d271800
+Refund fee: 0.00000297 BTC (0.00001021 BTC/kB)
+
+Refund transaction (0ab0b811c9fad30a034d8f1e8f7f4684915121944af9ccd21fcff96a31324ad5):
+02000000016470a711a1a3062553d53bcbf710ad095b187d53c3a9756c6d5d496fe2718fa901000000ce473044022035295f681c4c3a7f28d5d889f982c6069d832b20a7eef8737cdba559ac3a226a02207644def8d6b3cd4bdef6edd8cdf5900ebe0dfda9f573ebeaf14e80ff9a2d36460121035ceaa55c2bfb92c9c3266da89097fa4173d1561bd7b07c91d70b6ac1e01f0f94004c616382012088a8204c6d4a1493c03c45ae259d3b3eaba98aab2b37c8c10bc93d9db77b577381adcd8876a914cf45fce54ebfcd30681d99fdf060e2ab56478888670471eca65db17576a914cf45fce54ebfcd30681d99fdf060e2ab564788886888ac0000000001f649bc00000000001976a914cf45fce54ebfcd30681d99fdf060e2ab5647888888ac71eca65d
+
+Publish refund transaction? [y/N] y
+Published refund transaction (0ab0b811c9fad30a034d8f1e8f7f4684915121944af9ccd21fcff96a31324ad5)
 ```
