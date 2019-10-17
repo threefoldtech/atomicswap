@@ -69,7 +69,7 @@ func init() {
 		fmt.Println("Commands:")
 		fmt.Println("  initiate <initiator seed> <participant address> <amount>")
 		fmt.Println("  participate <participant seed> <initiator address> <amount> <secret hash>")
-		fmt.Println("  redeem <contract> <contract transaction> <secret>")
+		fmt.Println("  redeem <receiver seed> <holdingAccountAdress> <secret>")
 		fmt.Println("  refund <refund transaction>")
 		fmt.Println("  extractsecret <redemption transaction> <secret hash>")
 		fmt.Println("  auditcontract <holdingAccountAdress> < refund transaction>")
@@ -103,9 +103,9 @@ type participateCmd struct {
 }
 
 type redeemCmd struct {
-	contract   []byte
-	contractTx string
-	secret     []byte
+	ReceiverKeyPair      *keypair.Full
+	holdingAccountAdress string
+	secret               []byte
 }
 
 type refundCmd struct {
@@ -259,6 +259,28 @@ func run() (showUsage bool, err error) {
 			return true, fmt.Errorf("failed to decode refund transaction: %v", err)
 		}
 		cmd = &refundCmd{refundTx: refundTransaction}
+	case "redeem":
+
+		receiverKeypair, err := keypair.Parse(args[1])
+		if err != nil {
+			return true, fmt.Errorf("invalid receiver seed: %v", err)
+		}
+		receiverFullKeypair, ok := receiverKeypair.(*keypair.Full)
+		if !ok {
+			return true, errors.New("invalid receiver seed")
+		}
+		_, err = keypair.Parse(args[2])
+		if err != nil {
+			return true, fmt.Errorf("invalid holding account address: %v", err)
+		}
+		secret, err := hex.DecodeString(args[3])
+		if err != nil {
+			return true, fmt.Errorf("failed to decode secret: %v", err)
+		}
+		if len(secret) != secretSize {
+			return true, fmt.Errorf("The secret should be %d bytes instead of %d", secretSize, len(secret))
+		}
+		cmd = &redeemCmd{ReceiverKeyPair: receiverFullKeypair, holdingAccountAdress: args[2], secret: secret}
 
 	}
 	err = cmd.runCommand(client)
@@ -620,7 +642,6 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 	}
 	if accountMergeOperation.SourceAccount.GetAccountID() != cmd.holdingAccountAdress {
 		return fmt.Errorf("The refund transaction does not refund from the holding account but from %v", accountMergeOperation.SourceAccount.GetAccountID())
-
 	}
 	refundAddress := accountMergeOperation.Destination
 	if !*automatedFlag {
@@ -673,7 +694,63 @@ func (cmd *refundCmd) runCommand(client horizonclient.ClientInterface) error {
 		return err
 	}
 	if !*automatedFlag {
-
-		fmt.Println(result.TransactionSuccessToString)
+		fmt.Println(result.TransactionSuccessToString())
 	}
+	return nil
+}
+
+func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
+	holdingAccount, err := stellar.GetAccount(cmd.holdingAccountAdress, client)
+	if err != nil {
+		return err
+	}
+	receiverAddress := cmd.ReceiverKeyPair.Address()
+	mergeAccountOperation := txnbuild.AccountMerge{
+		Destination:   receiverAddress,
+		SourceAccount: holdingAccount,
+	}
+	redeemTransaction := txnbuild.Transaction{
+		Timebounds: txnbuild.NewTimebounds(int64(0), int64(0)),
+		Operations: []txnbuild.Operation{
+			&mergeAccountOperation,
+		},
+		Network:       targetNetwork,
+		SourceAccount: holdingAccount,
+	}
+	err = redeemTransaction.SignHashX(cmd.secret)
+	if err != nil {
+		return fmt.Errorf("Unable to sign with the secret:%v", err)
+	}
+
+	err = redeemTransaction.Sign(cmd.ReceiverKeyPair)
+	if err != nil {
+		return fmt.Errorf("Unable to sign with the receiver keypair:%v", err)
+	}
+
+	if err = redeemTransaction.Build(); err != nil {
+		return fmt.Errorf("Failed to build the refund transaction: %s", err)
+	}
+
+	txe, err := redeemTransaction.Base64()
+	if err != nil {
+		return fmt.Errorf("Unable to uncode the transaction: %v", err)
+	}
+
+	txSuccess, err := stellar.SubmitTransaction(txe, client)
+	if err != nil {
+		return err
+	}
+
+	if !*automatedFlag {
+		fmt.Println(txSuccess.TransactionSuccessToString())
+	} else {
+		output := struct {
+			RedeemTransactionTxHash string `json:"redeemTransaction"`
+		}{
+			fmt.Sprintf("%v", txSuccess.Hash),
+		}
+		jsonoutput, _ := json.Marshal(output)
+		fmt.Println(string(jsonoutput))
+	}
+	return nil
 }
