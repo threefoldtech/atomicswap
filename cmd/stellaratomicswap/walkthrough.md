@@ -157,3 +157,24 @@ $ ./stellaratomicswap -testnet redeem SCCSIKGU4F5JS4LY5QZ2OXYMTQTQVJF3TOA7PZVTDD
     Result: AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAAIAAAAAAAAAAFR9VOMAAAAAA==
     Meta: AAAAAQAAAAIAAAADABLTRwAAAAAAAAAASeliwp1MV/Cr/12pnwupOcIuEM9EHkFT4ytzHh3VtuQAAAABUfVTjAAS0pUAAAABAAAAAwAAAAAAAAAAAAAAAAACAgIAAAADAAAAAH4gcLuqwpb2lzlGCOPaKqgei7Q+ucTJtmDcnPeWmRCvAAAAAQAAAAHWpnUj4pDcRbZM/CQT5Owpwmt9pytX8iuqJKH7NWGk8gAAAAIAAAACbDuK4yv8pyeCFIag95/x0mgA353xdjCZ6hiAmM/cJB4AAAABAAAAAAAAAAAAAAABABLTRwAAAAAAAAAASeliwp1MV/Cr/12pnwupOcIuEM9EHkFT4ytzHh3VtuQAAAABUfVTjAAS0pUAAAACAAAAAwAAAAAAAAAAAAAAAAACAgIAAAADAAAAAH4gcLuqwpb2lzlGCOPaKqgei7Q+ucTJtmDcnPeWmRCvAAAAAQAAAAHWpnUj4pDcRbZM/CQT5Owpwmt9pytX8iuqJKH7NWGk8gAAAAIAAAACbDuK4yv8pyeCFIag95/x0mgA353xdjCZ6hiAmM/cJB4AAAABAAAAAAAAAAAAAAABAAAABAAAAAMAEhg5AAAAAAAAAAB+IHC7qsKW9pc5Rgjj2iqoHou0PrnEybZg3Jz3lpkQrwAAABdIdugAABIYOQAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAEAEtNHAAAAAAAAAAB+IHC7qsKW9pc5Rgjj2iqoHou0PrnEybZg3Jz3lpkQrwAAABiabDuMABIYOQAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAMAEtNHAAAAAAAAAABJ6WLCnUxX8Kv/XamfC6k5wi4Qz0QeQVPjK3MeHdW25AAAAAFR9VOMABLSlQAAAAIAAAADAAAAAAAAAAAAAAAAAAICAgAAAAMAAAAAfiBwu6rClvaXOUYI49oqqB6LtD65xMm2YNyc95aZEK8AAAABAAAAAdamdSPikNxFtkz8JBPk7CnCa32nK1fyK6okofs1YaTyAAAAAgAAAAJsO4rjK/ynJ4IUhqD3n/HSaADfnfF2MJnqGICYz9wkHgAAAAEAAAAAAAAAAAAAAAIAAAAAAAAAAEnpYsKdTFfwq/9dqZ8LqTnCLhDPRB5BU+Mrcx4d1bbk
 ```
+
+### redeem bitcoins
+
+Now that Bob has withdrawn from the stellar contract and revealed the secret. If bob is really nice he could simply give the secret to Alice. However,even if he doesn't do this Alice can extract the secret from this redemption transaction. Alice may watch a block explorer to see when the stellar  holding account was merged or being spent fromand look up the redeeming transaction.
+
+Alice can automatically extract the secret from the transaction where it is used by Bob, by simply giving the holding account address.
+
+command:`stellaratomicswap [-tesnet] extractsecret holdingAccountAddress secretHash`
+
+```sh
+$./stellaratomicswap -testnet extractsecret GBE6SYWCTVGFP4FL75O2THYLVE44ELQQZ5CB4QKT4MVXGHQ52W3OJEJR 6c3b8ae32bfca727821486a0f79ff1d26800df9df1763099ea188098cfdc241e
+Extracted secret: b0d91a0814934a16f8dafc62e75ae03c18cc74489628b0bacf6252f5701024c2
+```
+
+With the secret known, Alice may redeem from Bob's Bitcoin contract:
+
+command: `btcatomicswap redeem <contract> <contract transaction> <secret>`
+
+## References
+
+- [Electrum](https://electrum.org)

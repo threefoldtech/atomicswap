@@ -5,6 +5,10 @@ package stellar
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+
+	"github.com/stellar/go/protocols/horizon/effects"
 
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
@@ -38,6 +42,43 @@ func GetAccount(address string, client horizonclient.ClientInterface) (account *
 		return
 	}
 	account = &accountStruct
+	return
+}
+
+func getIDFromLink(href string) string {
+	splittedHref := strings.Split(href, "/")
+	return splittedHref[len(splittedHref)-1]
+}
+
+//GetAccountDebitediTransactions returns the transactions that debited the account
+func GetAccountDebitediTransactions(accountAddress string, client horizonclient.ClientInterface) (transactions []horizon.Transaction, err error) {
+	effectRequest := horizonclient.EffectRequest{ForAccount: accountAddress, Limit: 100}
+	effect, err := client.Effects(effectRequest)
+	if err != nil {
+		return
+	}
+	transactions = make([]horizon.Transaction, 0, 1)
+	for _, effectRecord := range effect.Embedded.Records {
+		if effectRecord.GetType() != effects.EffectTypeNames[effects.EffectAccountDebited] {
+			continue
+		}
+		realEffect, ok := effectRecord.(effects.AccountDebited)
+		if !ok {
+			return nil, fmt.Errorf("effect is not a horizon protocol AccountDebited effect but a %v", reflect.TypeOf(effectRecord))
+		}
+		operationID := getIDFromLink(realEffect.Links.Operation.Href)
+
+		operation, err := client.OperationDetail(operationID)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get the operation with ID %v", operationID)
+		}
+		transactionHash := operation.GetTransactionHash()
+		transaction, err := client.TransactionDetail(transactionHash)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get the transaction with hash %v", transactionHash)
+		}
+		transactions = append(transactions, transaction)
+	}
 	return
 }
 

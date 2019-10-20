@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/go/strkey"
 
@@ -72,7 +75,7 @@ func init() {
 		fmt.Println("  participate <participant seed> <initiator address> <amount> <secret hash>")
 		fmt.Println("  redeem <receiver seed> <holdingAccountAdress> <secret>")
 		fmt.Println("  refund <refund transaction>")
-		fmt.Println("  extractsecret <redemption transaction> <secret hash>")
+		fmt.Println("  extractsecret <holdingAccountAdress> <secret hash>")
 		fmt.Println("  auditcontract <holdingAccountAdress> < refund transaction>")
 		fmt.Println()
 		fmt.Println("Flags:")
@@ -104,9 +107,9 @@ type participateCmd struct {
 }
 
 type redeemCmd struct {
-	ReceiverKeyPair      *keypair.Full
-	holdingAccountAdress string
-	secret               []byte
+	ReceiverKeyPair       *keypair.Full
+	holdingAccountAddress string
+	secret                []byte
 }
 
 type refundCmd struct {
@@ -114,8 +117,8 @@ type refundCmd struct {
 }
 
 type extractSecretCmd struct {
-	redemptionTx string
-	secretHash   []byte
+	holdingAccountAdress string
+	secretHash           string
 }
 
 type auditContractCmd struct {
@@ -281,8 +284,15 @@ func run() (showUsage bool, err error) {
 		if len(secret) != secretSize {
 			return true, fmt.Errorf("The secret should be %d bytes instead of %d", secretSize, len(secret))
 		}
-		cmd = &redeemCmd{ReceiverKeyPair: receiverFullKeypair, holdingAccountAdress: args[2], secret: secret}
+		cmd = &redeemCmd{ReceiverKeyPair: receiverFullKeypair, holdingAccountAddress: args[2], secret: secret}
 
+	case "extractsecret":
+
+		_, err = keypair.Parse(args[1])
+		if err != nil {
+			return true, fmt.Errorf("invalid holding account address: %v", err)
+		}
+		cmd = &extractSecretCmd{holdingAccountAdress: args[1], secretHash: args[2]}
 	}
 	err = cmd.runCommand(client)
 	return false, err
@@ -703,7 +713,7 @@ func (cmd *refundCmd) runCommand(client horizonclient.ClientInterface) error {
 }
 
 func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
-	holdingAccount, err := stellar.GetAccount(cmd.holdingAccountAdress, client)
+	holdingAccount, err := stellar.GetAccount(cmd.holdingAccountAddress, client)
 	if err != nil {
 		return err
 	}
@@ -755,5 +765,42 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 		jsonoutput, _ := json.Marshal(output)
 		fmt.Println(string(jsonoutput))
 	}
+	return nil
+}
+
+func (cmd *extractSecretCmd) runCommand(client horizonclient.ClientInterface) error {
+	transactions, err := stellar.GetAccountDebitediTransactions(cmd.holdingAccountAdress, client)
+	if err != nil {
+		return fmt.Errorf("Error getting the transaction that debited the holdingAccount: %v", err)
+	}
+	switch len(transactions) {
+	case 1:
+	case 0:
+		return errors.New("The holdingaccount has not been redeemed yet")
+	default:
+		return errors.New("Multiple spending transactions found") //TODO:find the good one
+	}
+	var extractedSecret []byte
+	for _, rawSignature := range transactions[0].Signatures {
+
+		decodedSignature, err := base64.StdEncoding.DecodeString(rawSignature)
+		if err != nil {
+			return fmt.Errorf("Error base64 decoding signature :%v", err)
+		}
+		if len(decodedSignature) > xdr.Signature(decodedSignature).XDRMaxSize() {
+			continue // this is certainly not the secret we are looking for
+		}
+		signatureHash := sha256.Sum256(decodedSignature)
+		hexSignatureHash := fmt.Sprintf("%x", signatureHash)
+		if hexSignatureHash == cmd.secretHash {
+			extractedSecret = decodedSignature
+			break
+		}
+	}
+
+	if extractedSecret == nil {
+		return errors.New("Unable to find the matching secret")
+	}
+	fmt.Printf("Extracted secret: %x\n", extractedSecret)
 	return nil
 }
