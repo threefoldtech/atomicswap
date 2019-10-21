@@ -30,7 +30,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:de830df9a9d777e727531c434053faf5f46439c626ac0de33421048a85815131"
+  digest = "1:84db279d785ff2d664ee1c8c5d8a37f17a877786b86afd95ddaf3b142c4aa685"
   name = "github.com/btcsuite/btcd"
   packages = [
     "btcec",
@@ -40,7 +40,7 @@
     "wire",
   ]
   pruneopts = "UT"
-  revision = "ba530c4abb35ea824a1d3c01d74969b5564c3b08"
+  revision = "a41498d578a99c1619037746abd916176ea61052"
 
 [[projects]]
   branch = "master"
@@ -68,7 +68,7 @@
   name = "github.com/btcsuite/btcwallet"
   packages = ["wallet/txrules"]
   pruneopts = "UT"
-  revision = "95d7aa0b4953bd67cd265f4a378ea2cde52c54d1"
+  revision = "7abdd4f8ad7dcf22c5dd90d123b0c137f93d3879"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -106,7 +106,7 @@
   version = "v0.10.5"
 
 [[projects]]
-  digest = "1:fcf2cccbd9152031a7f085bd9efb343077e1d341843e08576d2e48dd272b30a3"
+  digest = "1:984b03cf9ac32d6d154e329a078864223928da609716ff64b19835c5145682b1"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -164,9 +164,9 @@
     "signer/storage",
     "trie",
   ]
-  pruneopts = "T"
-  revision = "a1c09b93871dd3770adffb177086abda1b2ff3af"
-  version = "v1.9.5"
+  pruneopts = "UT"
+  revision = "bd05968077f27f7eb083404dd8448157996a8788"
+  version = "v1.9.6"
 
 [[projects]]
   branch = "master"
@@ -175,6 +175,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "2772fd86a8ff4306d2749f610a386bfee9e0d727"
+
+[[projects]]
+  digest = "1:aacef5f5e45685f2aeda5534d0a750dee6859de7e9088cdd06192787bb01ae6d"
+  name = "github.com/go-errors/errors"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
+  version = "v1.0.1"
 
 [[projects]]
   digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
@@ -263,6 +271,34 @@
   revision = "51dc0efba3568b598359930901dc6647e9b2c6a1"
 
 [[projects]]
+  digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
+
+[[projects]]
+  digest = "1:12cb143f2148bf54bcd9fe622abac17325e85eeb1d84b8ec6caf1c80232108fd"
+  name = "github.com/lib/pq"
+  packages = [
+    ".",
+    "oid",
+    "scram",
+  ]
+  pruneopts = "UT"
+  revision = "3427c32cb71afc948325f299f040e53c1dd78979"
+  version = "v1.2.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:31bd492aa2822484bcec518e0b693e1aedfdf9637b43527c0ad29d5cf8abfd43"
+  name = "github.com/manucorporat/sse"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ee05b128a739a0fb76c7ebd3ae4810c1de808d6d"
+
+[[projects]]
   digest = "1:0356f3312c9bd1cbeda81505b7fd437501d8e778ab66998ef69f00d7f9b3a0d7"
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
@@ -295,6 +331,14 @@
   version = "v0.8.1"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = "UT"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:19a227084137c73d7a519ff90acc9fa69855c2ba134bb9c7dfe94e9ad2949c64"
   name = "github.com/prometheus/tsdb"
   packages = ["fileutil"]
@@ -319,6 +363,25 @@
   version = "v1.7.0"
 
 [[projects]]
+  digest = "1:54bd573538ca13ccf85d18c99249d934f17957f17263256b42565a11c854c1de"
+  name = "github.com/segmentio/go-loggly"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "3e0cec4266ddf583aecef51bb8e9badc3cca5314"
+  version = "v0.5.0"
+
+[[projects]]
+  digest = "1:31538f8d774e8bf2fb9380d2d2a82d69e206a7d0603946586926f1819c546c26"
+  name = "github.com/sirupsen/logrus"
+  packages = [
+    ".",
+    "hooks/test",
+  ]
+  pruneopts = "UT"
+  revision = "839c75faf7f98a33d445d181f3018b5c3409a45e"
+  version = "v1.4.2"
+
+[[projects]]
   branch = "develop"
   digest = "1:6deccaba5762377091f2e5b26dba70e630e01edb3f95d1a6a59d9b098bd4358f"
   name = "github.com/status-im/keycard-go"
@@ -341,6 +404,66 @@
   pruneopts = "UT"
   revision = "003c143a81c25ea5e263d692919c611c7122ae6b"
   version = "0.2.5"
+
+[[projects]]
+  branch = "master"
+  digest = "1:180c973f8fda7ee70dff0bc3f1dadef69a2e15210cd1e092013a06805a387ac6"
+  name = "github.com/stellar/go"
+  packages = [
+    "amount",
+    "build",
+    "clients/horizon",
+    "clients/horizonclient",
+    "crc16",
+    "hash",
+    "keypair",
+    "network",
+    "price",
+    "protocols/horizon",
+    "protocols/horizon/base",
+    "protocols/horizon/effects",
+    "protocols/horizon/operations",
+    "strkey",
+    "support/app",
+    "support/clock",
+    "support/errors",
+    "support/log",
+    "support/render/hal",
+    "support/render/httpjson",
+    "support/render/problem",
+    "support/url",
+    "txnbuild",
+    "xdr",
+  ]
+  pruneopts = "UT"
+  revision = "613572f4783969f8193f582331dd28bd6e52d1ac"
+
+[[projects]]
+  branch = "master"
+  digest = "1:6c08cb31e67fed09170edb8c194705b3ffe9e76b90b51c25b6673244ca8bbe89"
+  name = "github.com/stellar/go-xdr"
+  packages = ["xdr3"]
+  pruneopts = "UT"
+  revision = "0bc96f33a18ef2f963e75431dbed042129eb421b"
+
+[[projects]]
+  digest = "1:ac83cf90d08b63ad5f7e020ef480d319ae890c208f8524622a2f3136e2686b02"
+  name = "github.com/stretchr/objx"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
+
+[[projects]]
+  digest = "1:ad527ce5c6b2426790449db7663fe53f8bb647f9387295406794c8be001238da"
+  name = "github.com/stretchr/testify"
+  packages = [
+    "assert",
+    "mock",
+  ]
+  pruneopts = "UT"
+  revision = "221dbe5ed46703ee255b1da0dec05086f5035f62"
+  version = "v1.4.0"
 
 [[projects]]
   digest = "1:5b180f17d5bc50b765f4dcf0d126c72979531cbbd7f7929bf3edd87fb801ea2d"
@@ -384,10 +507,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f8cf99090502f6d1067e8ef04f0c9cac68605db3c244174a6d07037850a59097"
+  digest = "1:c2c4762ca394c0a49921e3b3ab7c9bd00c5cbb829b333ede4c9bb7acfafd0f45"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
     "pbkdf2",
     "ripemd160",
     "scrypt",
@@ -395,11 +520,11 @@
     "ssh/terminal",
   ]
   pruneopts = "UT"
-  revision = "a832865fa7ada6126f4c6124ac49f71be71bff2a"
+  revision = "87dc89f01550277dc22b74ffcf4cd89fa2f40f4c"
 
 [[projects]]
   branch = "master"
-  digest = "1:a167b5c532f3245f5a147ade26185f16d6ee8f8d3f6c9846f447e9d8b9705505"
+  digest = "1:94002ae1eb37d085f9aca990b3246b0cf6f0d114b5c0924aedd8eaf2a912143f"
   name = "golang.org/x/net"
   packages = [
     "html",
@@ -407,11 +532,11 @@
     "html/charset",
   ]
   pruneopts = "UT"
-  revision = "c00fd9afed17cfdca9b3e1e3b8de7ef2b3f0347b"
+  revision = "da9a3fd4c5820e74b24a6cb7fb438dc9b0dd377c"
 
 [[projects]]
   branch = "master"
-  digest = "1:14f5ded65a63708325dc97d7a74e49439ad8f4c2493a7401a5535060ff061267"
+  digest = "1:2d4ef744498218d6d0e966e7094911d9a76616ed49c78b54d0697e482fb69b1c"
   name = "golang.org/x/sys"
   packages = [
     "cpu",
@@ -419,7 +544,7 @@
     "windows",
   ]
   pruneopts = "UT"
-  revision = "c990c680b611ac1aeb7d8f2af94a825f98d69720"
+  revision = "3e7259c5e7c2076bb2728047a3df75adb1bad8e5"
 
 [[projects]]
   digest = "1:7570a3e4daa14b7627089e77ad8c714f5f36b4cf1b7dfd8510df7d6935dc42a0"
@@ -460,6 +585,14 @@
   pruneopts = "UT"
   revision = "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"
 
+[[projects]]
+  digest = "1:59f10c1537d2199d9115d946927fe31165959a95190849c82ff11e05803528b0"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f221b8435cfb71e54062f6c6e99e9ade30b124d5"
+  version = "v2.2.4"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -485,6 +618,17 @@
     "github.com/ethereum/go-ethereum/params",
     "github.com/ethereum/go-ethereum/rlp",
     "github.com/ethereum/go-ethereum/rpc",
+    "github.com/stellar/go/clients/horizon",
+    "github.com/stellar/go/clients/horizonclient",
+    "github.com/stellar/go/keypair",
+    "github.com/stellar/go/network",
+    "github.com/stellar/go/protocols/horizon",
+    "github.com/stellar/go/protocols/horizon/effects",
+    "github.com/stellar/go/strkey",
+    "github.com/stellar/go/txnbuild",
+    "github.com/stellar/go/xdr",
+    "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/mock",
     "golang.org/x/crypto/ripemd160",
   ]
   solver-name = "gps-cdcl"

@@ -2,3 +2,4 @@ debug
 release
 cmd/btcatomicswap/btcatomicswap
 cmd/ethatomicswap/ethatomicswap
+cmd/stellaratomicswap/stellaratomicswap
