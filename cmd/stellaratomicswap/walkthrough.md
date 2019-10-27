@@ -1,4 +1,4 @@
-# Stellar atomic swap walkthrough
+# Stellar XLM atomic swap walkthrough
 
 A walkthrough of an atomic swap of lumen and bitcoin using the the bitcoin Electrum thin client.
 

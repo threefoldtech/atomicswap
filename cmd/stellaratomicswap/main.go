@@ -773,28 +773,28 @@ func (cmd *extractSecretCmd) runCommand(client horizonclient.ClientInterface) er
 	if err != nil {
 		return fmt.Errorf("Error getting the transaction that debited the holdingAccount: %v", err)
 	}
-	switch len(transactions) {
-	case 1:
-	case 0:
+	if len(transactions) == 0 {
 		return errors.New("The holdingaccount has not been redeemed yet")
-	default:
-		return errors.New("Multiple spending transactions found") //TODO:find the good one
 	}
 	var extractedSecret []byte
-	for _, rawSignature := range transactions[0].Signatures {
+transactionsLoop:
+	for _, transaction := range transactions {
 
-		decodedSignature, err := base64.StdEncoding.DecodeString(rawSignature)
-		if err != nil {
-			return fmt.Errorf("Error base64 decoding signature :%v", err)
-		}
-		if len(decodedSignature) > xdr.Signature(decodedSignature).XDRMaxSize() {
-			continue // this is certainly not the secret we are looking for
-		}
-		signatureHash := sha256.Sum256(decodedSignature)
-		hexSignatureHash := fmt.Sprintf("%x", signatureHash)
-		if hexSignatureHash == cmd.secretHash {
-			extractedSecret = decodedSignature
-			break
+		for _, rawSignature := range transaction.Signatures {
+
+			decodedSignature, err := base64.StdEncoding.DecodeString(rawSignature)
+			if err != nil {
+				return fmt.Errorf("Error base64 decoding signature :%v", err)
+			}
+			if len(decodedSignature) > xdr.Signature(decodedSignature).XDRMaxSize() {
+				continue // this is certainly not the secret we are looking for
+			}
+			signatureHash := sha256.Sum256(decodedSignature)
+			hexSignatureHash := fmt.Sprintf("%x", signatureHash)
+			if hexSignatureHash == cmd.secretHash {
+				extractedSecret = decodedSignature
+				break transactionsLoop
+			}
 		}
 	}
 
