@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 	"strconv"
@@ -42,6 +43,7 @@ var (
 	flagset       = flag.NewFlagSet("", flag.ExitOnError)
 	testnetFlag   = flagset.Bool("testnet", false, "use testnet network")
 	automatedFlag = flagset.Bool("automated", false, "Use automated/unattended version with json output")
+	assetParam    = flagset.String("asset", "", "The asset to transfer in case of non native XLM, format: `code:issuer`")
 )
 
 // There are two directions that the atomic swap can be performed, as the
@@ -71,8 +73,8 @@ func init() {
 		fmt.Println("Usage: stellaratomicswap [flags] cmd [cmd args]")
 		fmt.Println()
 		fmt.Println("Commands:")
-		fmt.Println("  initiate <initiator seed> <participant address> <amount>")
-		fmt.Println("  participate <participant seed> <initiator address> <amount> <secret hash>")
+		fmt.Println("  initiate [-asset code:issuer] <initiator seed> <participant address> <amount>")
+		fmt.Println("  participate [-asset code:issuer]  <participant seed> <initiator address> <amount> <secret hash>")
 		fmt.Println("  redeem <receiver seed> <holdingAccountAdress> <secret>")
 		fmt.Println("  refund <refund transaction>")
 		fmt.Println("  extractsecret <holdingAccountAdress> <secret hash>")
@@ -97,6 +99,7 @@ type initiateCmd struct {
 	InitiatorKeyPair *keypair.Full
 	cp2Addr          string
 	amount           string
+	asset            txnbuild.Asset
 }
 
 type participateCmd struct {
@@ -104,6 +107,7 @@ type participateCmd struct {
 	participatorKeyPair *keypair.Full
 	amount              string
 	secretHash          []byte
+	asset               txnbuild.Asset
 }
 
 type redeemCmd struct {
@@ -151,8 +155,22 @@ func checkCmdArgLength(args []string, required int) (nArgs int) {
 	return required
 }
 func run() (showUsage bool, err error) {
+
 	flagset.Parse(os.Args[1:])
 	args := flagset.Args()
+	var asset txnbuild.Asset
+	if *assetParam != "" {
+		assetparts := strings.SplitN(*assetParam, ":", 2)
+		if len(assetparts) != 2 {
+			log.Fatalln("Invalid asset format")
+		}
+		asset = txnbuild.CreditAsset{
+			Code:   assetparts[0],
+			Issuer: assetparts[1],
+		}
+	} else {
+		asset = txnbuild.NativeAsset{}
+	}
 	if len(args) == 0 {
 		return true, nil
 	}
@@ -217,7 +235,7 @@ func run() (showUsage bool, err error) {
 			return true, fmt.Errorf("failed to decode amount: %v", err)
 		}
 
-		cmd = &initiateCmd{InitiatorKeyPair: initiatorFullKeypair, cp2Addr: args[2], amount: args[3]}
+		cmd = &initiateCmd{InitiatorKeyPair: initiatorFullKeypair, cp2Addr: args[2], amount: args[3], asset: asset}
 	case "participate":
 		participatorKeypair, err := keypair.Parse(args[1])
 		if err != nil {
@@ -245,7 +263,7 @@ func run() (showUsage bool, err error) {
 		if len(secretHash) != sha256.Size {
 			return true, errors.New("secret hash has wrong size")
 		}
-		cmd = &participateCmd{participatorKeyPair: participatorFullKeypair, cp1Addr: args[2], amount: args[3], secretHash: secretHash}
+		cmd = &participateCmd{participatorKeyPair: participatorFullKeypair, cp1Addr: args[2], amount: args[3], secretHash: secretHash, asset: asset}
 	case "auditcontract":
 		_, err = keypair.Parse(args[1])
 		if err != nil {
@@ -359,15 +377,22 @@ func createHoldingAccountTransaction(holdingAccountAddress string, xlmAmount str
 }
 
 //createHoldingAccount creates a new account to hold the atomic swap balance
-func createHoldingAccount(holdingAccountAddress string, xlmAmount string, fundingKeyPair *keypair.Full, network string, client horizonclient.ClientInterface) (err error) {
-
+func createHoldingAccount(holdingAccountAddress string, amount string, fundingKeyPair *keypair.Full, network string, asset txnbuild.Asset, client horizonclient.ClientInterface) (err error) {
 	fundingAccount, err := stellar.GetAccount(fundingKeyPair.Address(), client)
 	if err != nil {
 		return fmt.Errorf("Failed to get the funding account:%s", err)
 	}
-	createAccountTransaction, err := createHoldingAccountTransaction(holdingAccountAddress, xlmAmount, fundingAccount, network)
+	createAccountTransaction, err := createHoldingAccountTransaction(holdingAccountAddress, amount, fundingAccount, network)
 	if err != nil {
 		return fmt.Errorf("Failed to create the holding account transaction: %s", err)
+	}
+	if !asset.IsNative() {
+
+		changetrust := txnbuild.ChangeTrust{
+			Line:  txnbuild.CreditAsset{Code: asset.GetCode(), Issuer: asset.GetIssuer()},
+			Limit: "100000",
+		}
+		createAccountTransaction.Operations = append(createAccountTransaction.Operations, &changetrust)
 	}
 	txe, err := createAccountTransaction.BuildSignEncode(fundingKeyPair)
 	if err != nil {
@@ -375,7 +400,11 @@ func createHoldingAccount(holdingAccountAddress string, xlmAmount string, fundin
 	}
 	_, err = stellar.SubmitTransaction(txe, client)
 	if err != nil {
-		return fmt.Errorf("Failed to publish the holding account creation transaction : %s", err)
+		accountID, err2 := createAccountTransaction.HashHex()
+		if err2 != nil {
+			panic(err2)
+		}
+		return fmt.Errorf("Failed to publish the holding account creation transaction : %s\n%s", accountID, err)
 	}
 	return
 }
@@ -452,12 +481,51 @@ func setHoldingAccountSigningOptions(holdingAccountKeyPair *keypair.Full, counte
 	}
 	return
 }
-func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, counterPartyAddress string, xlmAmount string, secretHash []byte, locktime time.Time, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
+
+func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, counterPartyAddress string, amount string, secretHash []byte, locktime time.Time, asset txnbuild.Asset, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
 
 	holdingAccountAddress := holdingAccountKeyPair.Address()
-	err = createHoldingAccount(holdingAccountAddress, xlmAmount, fundingKeyPair, targetNetwork, client)
+
+	xlmAmount := "10"
+	if asset.IsNative() {
+		xlmAmount = amount
+	}
+	err = createHoldingAccount(holdingAccountAddress, xlmAmount, fundingKeyPair, targetNetwork, asset, client)
 	if err != nil {
 		return
+	}
+
+	if !asset.IsNative() {
+		fundingAccount, err2 := stellar.GetAccount(fundingKeyPair.Address(), client)
+		if err2 != nil {
+			err = err2
+			return
+		}
+		payment := txnbuild.Payment{
+			Destination:   holdingAccountAddress,
+			Amount:        amount,
+			Asset:         asset,
+			SourceAccount: fundingAccount,
+		}
+
+		tx := txnbuild.Transaction{
+			SourceAccount: fundingAccount,
+			Operations:    []txnbuild.Operation{&payment},
+			Timebounds:    txnbuild.NewInfiniteTimeout(), // Use a real timeout in production!
+			Network:       targetNetwork,
+		}
+		txe, err2 := tx.BuildSignEncode(fundingKeyPair)
+		if err2 != nil {
+			err = err2
+			return
+		}
+		_, err = stellar.SubmitTransaction(txe, client)
+		if err != nil {
+			transactionID, _ := tx.HashHex()
+			err = fmt.Errorf("Failed to publish the payment transaction : %s\n%s", transactionID, err)
+			return
+		}
+
 	}
 
 	refundTransaction, err = createRefundTransaction(holdingAccountAddress, fundingKeyPair.Address(), locktime, client)
@@ -490,7 +558,7 @@ func (cmd *initiateCmd) runCommand(client horizonclient.ClientInterface) error {
 	//to recover the funds
 
 	locktime := time.Now().Add(timings.LockTime)
-	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.InitiatorKeyPair, holdingAccountKeyPair, cmd.cp2Addr, cmd.amount, secretHash, locktime, client)
+	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.InitiatorKeyPair, holdingAccountKeyPair, cmd.cp2Addr, cmd.amount, secretHash, locktime, cmd.asset, client)
 	if err != nil {
 		return err
 	}
@@ -536,7 +604,7 @@ func (cmd *participateCmd) runCommand(client horizonclient.ClientInterface) erro
 	//to recover the funds
 
 	locktime := time.Now().Add(timings.LockTime / 2)
-	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.participatorKeyPair, holdingAccountKeyPair, cmd.cp1Addr, cmd.amount, cmd.secretHash, locktime, client)
+	refundTransaction, err := createAtomicSwapHoldingAccount(cmd.participatorKeyPair, holdingAccountKeyPair, cmd.cp1Addr, cmd.amount, cmd.secretHash, locktime, cmd.asset, client)
 	if err != nil {
 		return err
 	}
