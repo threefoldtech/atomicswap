@@ -2,7 +2,7 @@
 
 A walkthrough of an atomic swap of lumen and bitcoin using the the bitcoin Electrum thin client.
 
-This example is a walkthrough of an actual atomic swap on the threefold and bitcoin testnets.
+This example is a walkthrough of an actual atomic swap on the Stellar and bitcoin testnets.
 
 ## perequisites
 
@@ -46,7 +46,7 @@ command:`btcatomicswap [-testnet]initiate <participant address> <amount>`
 
 ```sh
 $ ./btcatomicswap -testnet --rpcuser=user --rpcpass=pass -s  "localhost:7777" initiate mytQ9begA7nkKaNfAu8mXBPhJAD3LWGAbp  0.1234
-ecret:      b0d91a0814934a16f8dafc62e75ae03c18cc74489628b0bacf6252f5701024c2
+Secret:      b0d91a0814934a16f8dafc62e75ae03c18cc74489628b0bacf6252f5701024c2
 Secret hash: 6c3b8ae32bfca727821486a0f79ff1d26800df9df1763099ea188098cfdc241e
 
 Contract fee: 0.00000372 BTC (0.00001000 BTC/kB)

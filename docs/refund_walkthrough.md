@@ -143,7 +143,7 @@ Refund time lock has expired
 
 ## refund
 
-In case Bob does not withraw the stellar tokens and as such does not share the secret, Alice can withdraw her funds in the holding account.
+Bob does not withraw the stellar tokens and as such does not share the secret, Alice can withdraw her funds in the holding account.
 command:`stellaratomicswap [-testnet] refund refundTransaction`
 
 Bob can reclaim his bitcoins as well:
