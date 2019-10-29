@@ -12,9 +12,9 @@ import (
 
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
-	"github.com/stellar/go/strkey"
-
 	"github.com/stellar/go/protocols/horizon"
+	"github.com/stellar/go/strkey"
+	"github.com/stellar/go/txnbuild"
 )
 
 //GenerateKeyPair creates a new stellar full keypair
@@ -39,6 +39,7 @@ func GetAccount(address string, client horizonclient.ClientInterface) (account *
 	ar := horizonclient.AccountRequest{AccountID: address}
 	accountStruct, err := client.AccountDetail(ar)
 	if err != nil {
+		err = fmt.Errorf("Failed to get account details: %v", err)
 		return
 	}
 	account = &accountStruct
@@ -79,6 +80,38 @@ func GetAccountDebitediTransactions(accountAddress string, client horizonclient.
 		}
 		transactions = append(transactions, transaction)
 	}
+	return
+}
+
+//GetNetworkPassPhrase fetches the networkPassphrase from a client
+func GetNetworkPassPhrase(client horizonclient.Client) (networkpassphrase string, err error) {
+	r, err := client.Root()
+	if err != nil {
+		err = fmt.Errorf("Failed to get the root from the client: %v", err)
+		return
+	}
+	networkpassphrase = r.NetworkPassphrase
+	return
+}
+
+//CreateAccountTransaction creates the transactio for creating a new account
+func CreateAccountTransaction(newccountAddress string, xlmAmount string, fundingAccount *horizon.Account, network string) (createAccountTransaction txnbuild.Transaction, err error) {
+
+	accountCreationOperation := txnbuild.CreateAccount{
+		Destination:   newccountAddress,
+		Amount:        xlmAmount,
+		SourceAccount: fundingAccount,
+	}
+
+	createAccountTransaction = txnbuild.Transaction{
+		SourceAccount: fundingAccount,
+		Operations: []txnbuild.Operation{
+			&accountCreationOperation,
+		},
+		Network:    network,
+		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
+	}
+
 	return
 }
 

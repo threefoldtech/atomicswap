@@ -10,7 +10,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"strconv"
@@ -162,7 +161,7 @@ func run() (showUsage bool, err error) {
 	if *assetParam != "" {
 		assetparts := strings.SplitN(*assetParam, ":", 2)
 		if len(assetparts) != 2 {
-			log.Fatalln("Invalid asset format")
+			return true, errors.New("Invalid asset format")
 		}
 		asset = txnbuild.CreditAsset{
 			Code:   assetparts[0],
@@ -356,25 +355,6 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 //- hash of a specific transaction that is present on the chain
 //    that merges the escrow account to the account that needs to withdraw
 //    and that can only be published in the future ( timeout mechanism)
-func createHoldingAccountTransaction(holdingAccountAddress string, xlmAmount string, fundingAccount *horizon.Account, network string) (createAccountTransaction txnbuild.Transaction, err error) {
-
-	accountCreationOperation := txnbuild.CreateAccount{
-		Destination:   holdingAccountAddress,
-		Amount:        xlmAmount,
-		SourceAccount: fundingAccount,
-	}
-
-	createAccountTransaction = txnbuild.Transaction{
-		SourceAccount: fundingAccount,
-		Operations: []txnbuild.Operation{
-			&accountCreationOperation,
-		},
-		Network:    network,
-		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
-	}
-
-	return
-}
 
 //createHoldingAccount creates a new account to hold the atomic swap balance
 func createHoldingAccount(holdingAccountAddress string, amount string, fundingKeyPair *keypair.Full, network string, asset txnbuild.Asset, client horizonclient.ClientInterface) (err error) {
@@ -382,17 +362,9 @@ func createHoldingAccount(holdingAccountAddress string, amount string, fundingKe
 	if err != nil {
 		return fmt.Errorf("Failed to get the funding account:%s", err)
 	}
-	createAccountTransaction, err := createHoldingAccountTransaction(holdingAccountAddress, amount, fundingAccount, network)
+	createAccountTransaction, err := stellar.CreateAccountTransaction(holdingAccountAddress, amount, fundingAccount, network)
 	if err != nil {
 		return fmt.Errorf("Failed to create the holding account transaction: %s", err)
-	}
-	if !asset.IsNative() {
-
-		changetrust := txnbuild.ChangeTrust{
-			Line:  txnbuild.CreditAsset{Code: asset.GetCode(), Issuer: asset.GetIssuer()},
-			Limit: "100000",
-		}
-		createAccountTransaction.Operations = append(createAccountTransaction.Operations, &changetrust)
 	}
 	txe, err := createAccountTransaction.BuildSignEncode(fundingKeyPair)
 	if err != nil {
@@ -481,7 +453,47 @@ func setHoldingAccountSigningOptions(holdingAccountKeyPair *keypair.Full, counte
 	}
 	return
 }
+func fundHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, amount string, asset txnbuild.Asset, client horizonclient.ClientInterface) (err error) {
+	holdingAccount, err := stellar.GetAccount(holdingAccountKeyPair.Address(), client)
+	if err != nil {
+		return
+	}
 
+	changetrust := txnbuild.ChangeTrust{
+		Line:          txnbuild.CreditAsset{Code: asset.GetCode(), Issuer: asset.GetIssuer()},
+		Limit:         amount,
+		SourceAccount: holdingAccount,
+	}
+	fundingAccount, err := stellar.GetAccount(fundingKeyPair.Address(), client)
+	if err != nil {
+		return
+	}
+	payment := txnbuild.Payment{
+		Destination:   holdingAccount.AccountID,
+		Amount:        amount,
+		Asset:         asset,
+		SourceAccount: fundingAccount,
+	}
+
+	tx := txnbuild.Transaction{
+		SourceAccount: fundingAccount,
+		Operations:    []txnbuild.Operation{&changetrust, &payment},
+		Timebounds:    txnbuild.NewInfiniteTimeout(), // Use a real timeout in production!
+		Network:       targetNetwork,
+	}
+	txe, err := tx.BuildSignEncode(holdingAccountKeyPair, fundingKeyPair)
+	if err != nil {
+		err = fmt.Errorf("Failed to build,sign and encode the funding transaction: %v", err)
+		return
+	}
+	_, err = stellar.SubmitTransaction(txe, client)
+	if err != nil {
+		transactionID, _ := tx.HashHex()
+		err = fmt.Errorf("Failed to publish the funding transaction : %s\n%s", transactionID, err)
+		return
+	}
+	return
+}
 func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, counterPartyAddress string, amount string, secretHash []byte, locktime time.Time, asset txnbuild.Asset, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
 
 	holdingAccountAddress := holdingAccountKeyPair.Address()
@@ -496,36 +508,10 @@ func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccount
 	}
 
 	if !asset.IsNative() {
-		fundingAccount, err2 := stellar.GetAccount(fundingKeyPair.Address(), client)
-		if err2 != nil {
-			err = err2
-			return
-		}
-		payment := txnbuild.Payment{
-			Destination:   holdingAccountAddress,
-			Amount:        amount,
-			Asset:         asset,
-			SourceAccount: fundingAccount,
-		}
-
-		tx := txnbuild.Transaction{
-			SourceAccount: fundingAccount,
-			Operations:    []txnbuild.Operation{&payment},
-			Timebounds:    txnbuild.NewInfiniteTimeout(), // Use a real timeout in production!
-			Network:       targetNetwork,
-		}
-		txe, err2 := tx.BuildSignEncode(fundingKeyPair)
-		if err2 != nil {
-			err = err2
-			return
-		}
-		_, err = stellar.SubmitTransaction(txe, client)
+		err = fundHoldingAccount(fundingKeyPair, holdingAccountKeyPair, amount, asset, client)
 		if err != nil {
-			transactionID, _ := tx.HashHex()
-			err = fmt.Errorf("Failed to publish the payment transaction : %s\n%s", transactionID, err)
 			return
 		}
-
 	}
 
 	refundTransaction, err = createRefundTransaction(holdingAccountAddress, fundingKeyPair.Address(), locktime, client)
