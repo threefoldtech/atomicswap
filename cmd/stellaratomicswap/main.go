@@ -360,7 +360,7 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 func createHoldingAccount(holdingAccountAddress string, amount string, fundingKeyPair *keypair.Full, network string, asset txnbuild.Asset, client horizonclient.ClientInterface) (err error) {
 	fundingAccount, err := stellar.GetAccount(fundingKeyPair.Address(), client)
 	if err != nil {
-		return fmt.Errorf("Failed to get the funding account:%s", err)
+		return
 	}
 	createAccountTransaction, err := stellar.CreateAccountTransaction(holdingAccountAddress, amount, fundingAccount, network)
 	if err != nil {
@@ -437,7 +437,7 @@ func setHoldingAccountSigningOptions(holdingAccountKeyPair *keypair.Full, counte
 	holdingAccountAddress := holdingAccountKeyPair.Address()
 	holdingAccount, err := stellar.GetAccount(holdingAccountAddress, client)
 	if err != nil {
-		return fmt.Errorf("Failed to get the holding account: %s", err)
+		return
 	}
 	setSigningOptionsTransaction, err := createHoldingAccountSigningTransaction(holdingAccount, counterPartyAddress, secretHash, refundTxHash, targetNetwork)
 	if err != nil {
@@ -625,7 +625,6 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 	if err != nil {
 		return fmt.Errorf("Error getting the holding account details: %v", err)
 	}
-	balance, err := holdingAccount.GetNativeBalance() //TODO: modify for other assets
 	if err != nil {
 		return err
 	}
@@ -713,7 +712,14 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 	refundAddress := accountMergeOperation.Destination
 	if !*automatedFlag {
 		fmt.Printf("Contract address:        %v\n", cmd.holdingAccountAdress)
-		fmt.Printf("Contract value:          %v\n", balance)
+		fmt.Println("Contract value:")
+		for _, balance := range holdingAccount.Balances {
+			if balance.Code == "" && balance.Issuer == "" {
+				fmt.Printf("Amount: %s XLM\n", balance.Balance)
+			} else {
+				fmt.Printf("Amount: %s Code: %s Issuer: %s \n", balance.Balance, balance.Code, balance.Issuer)
+			}
+		}
 		fmt.Printf("Recipient address:       %v\n", recipientAddress)
 		fmt.Printf("Refund address: %v\n\n", refundAddress)
 
@@ -737,7 +743,7 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 			Locktime         string `json:"Locktime"`
 		}{
 			fmt.Sprintf("%v", cmd.holdingAccountAdress),
-			fmt.Sprintf("%v", balance),
+			"", //TODO: json output for balances
 			recipientAddress,
 			refundAddress,
 			fmt.Sprintf("%x", secretHash),
