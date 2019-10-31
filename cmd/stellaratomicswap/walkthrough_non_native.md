@@ -114,7 +114,7 @@ AAAAAGzdWxiJhT48FjjGWO+iip3IXKphPZg2jSSbxbGPKpPaAAAAZAAVx94AAAACAAAAAQAAAABdud1Z
 ```
 
 The above command creates a holding account with 0.05 XLMBTC on it with modified signing conditions, matching the atomic swap conditiuons. [On a testnet explorer one can view the details of the holding account](
-https://testnet.steexp.com/account/GBWN2WYYRGCT4PAWHDDFR35CRKO4QXFKME6ZQNUNESN4LMMPFKJ5VHYQ).
+https://testnet.steexp.com/).Testnet is reset every quarter so this transaction might not be visible anymore.
 
 Alice now informs Bob that the Stellar contract account  has been created and provides him with the holding account address and the refund transaction.
 
@@ -152,7 +152,7 @@ Now that both Bob and Alice have paid into their respective contracts, Bob withd
 command:`stellaratomicswap [-tesnet] redeem receiverseed  holdingAccountAddress secret`
 
 ```sh
-$ ./stellaratomicswap -testnet redeem SCCSIKGU4F5JS4LY5QZ2OXYMTQTQVJF3TOA7PZVTDDPOPE7BXYAZOITZ GBE6SYWCTVGFP4FL75O2THYLVE44ELQQZ5CB4QKT4MVXGHQ52W3OJEJR b0d91a0814934a16f8dafc62e75ae03c18cc74489628b0bacf6252f5701024c2
+$ ./stellaratomicswap -testnet redeem SCCSIKGU4F5JS4LY5QZ2OXYMTQTQVJF3TOA7PZVTDDPOPE7BXYAZOITZ GBWN2WYYRGCT4PAWHDDFR35CRKO4QXFKME6ZQNUNESN4LMMPFKJ5VHYQ afaee75c4dcf47094a3c2c62ee97200a14aeb643e6fa2095dc4b5385911501a6
 ***TransactionSuccess dump***
     Links: {{https://horizon-testnet.stellar.org/transactions/4eae3f7b85033a5e76ae4eefb3ba1997df81ca6ae9667d8836261b4c37d2be2f false}}
     Hash: 4eae3f7b85033a5e76ae4eefb3ba1997df81ca6ae9667d8836261b4c37d2be2f
