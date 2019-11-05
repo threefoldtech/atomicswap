@@ -39,7 +39,7 @@ func GetAccount(address string, client horizonclient.ClientInterface) (account *
 	ar := horizonclient.AccountRequest{AccountID: address}
 	accountStruct, err := client.AccountDetail(ar)
 	if err != nil {
-		err = fmt.Errorf("Failed to get account details: %v", err)
+		err = fmt.Errorf("Failed to get account details for account %s: %v", address, err)
 		return
 	}
 	account = &accountStruct

@@ -778,15 +778,30 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 		return err
 	}
 	receiverAddress := cmd.ReceiverKeyPair.Address()
+	operations := make([]txnbuild.Operation, 0, 2)
+	for _, balance := range holdingAccount.Balances {
+		if balance.Code == "" && balance.Issuer == "" {
+			continue
+		}
+		payment := txnbuild.Payment{
+			Destination: receiverAddress,
+			Amount:      balance.Balance,
+			Asset: txnbuild.CreditAsset{
+				Code:   balance.Code,
+				Issuer: balance.Issuer,
+			}}
+		operations = append(operations, &payment)
+
+	}
 	mergeAccountOperation := txnbuild.AccountMerge{
 		Destination:   receiverAddress,
 		SourceAccount: holdingAccount,
 	}
+
+	operations = append(operations, &mergeAccountOperation)
 	redeemTransaction := txnbuild.Transaction{
-		Timebounds: txnbuild.NewTimebounds(int64(0), int64(0)),
-		Operations: []txnbuild.Operation{
-			&mergeAccountOperation,
-		},
+		Timebounds:    txnbuild.NewTimebounds(int64(0), int64(0)),
+		Operations:    operations,
 		Network:       targetNetwork,
 		SourceAccount: holdingAccount,
 	}
