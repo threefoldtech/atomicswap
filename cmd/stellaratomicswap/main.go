@@ -326,18 +326,15 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 	}
 	_, err = holdingAccount.IncrementSequenceNumber()
 	if err != nil {
+		err = fmt.Errorf("Unable to increment the sequence number of the holding account:%v", err)
 		return
 	}
 
-	mergeAccountOperation := txnbuild.AccountMerge{
-		Destination:   refundAccountAdress,
-		SourceAccount: holdingAccount,
-	}
+	operations := createRedeemOperations(holdingAccount, refundAccountAdress)
+
 	refundTransaction = txnbuild.Transaction{
-		Timebounds: txnbuild.NewTimebounds(locktime.Unix(), int64(0)),
-		Operations: []txnbuild.Operation{
-			&mergeAccountOperation,
-		},
+		Timebounds:    txnbuild.NewTimebounds(locktime.Unix(), int64(0)),
+		Operations:    operations,
 		Network:       targetNetwork,
 		SourceAccount: holdingAccount,
 	}
@@ -714,10 +711,10 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 		fmt.Printf("Contract address:        %v\n", cmd.holdingAccountAdress)
 		fmt.Println("Contract value:")
 		for _, balance := range holdingAccount.Balances {
-			if balance.Code == "" && balance.Issuer == "" {
+			if balance.Asset.Type == stellar.NativeAssetType {
 				fmt.Printf("Amount: %s XLM\n", balance.Balance)
 			} else {
-				fmt.Printf("Amount: %s Code: %s Issuer: %s \n", balance.Balance, balance.Code, balance.Issuer)
+				fmt.Printf("Amount: %s Code: %s Issuer: %s\n", balance.Balance, balance.Code, balance.Issuer)
 			}
 		}
 		fmt.Printf("Recipient address:       %v\n", recipientAddress)
@@ -772,13 +769,8 @@ func (cmd *refundCmd) runCommand(client horizonclient.ClientInterface) error {
 	return nil
 }
 
-func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
-	holdingAccount, err := stellar.GetAccount(cmd.holdingAccountAddress, client)
-	if err != nil {
-		return err
-	}
-	receiverAddress := cmd.ReceiverKeyPair.Address()
-	operations := make([]txnbuild.Operation, 0, 3)
+func createRedeemOperations(holdingAccount *horizon.Account, receiverAddress string) (redeemOperations []txnbuild.Operation) {
+	redeemOperations = make([]txnbuild.Operation, 0, len(holdingAccount.Balances))
 	for _, balance := range holdingAccount.Balances {
 		if balance.Asset.Type == stellar.NativeAssetType {
 			continue
@@ -790,22 +782,33 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 				Code:   balance.Code,
 				Issuer: balance.Issuer,
 			}}
-		operations = append(operations, &payment)
+		redeemOperations = append(redeemOperations, &payment)
 
 		removetrust := txnbuild.ChangeTrust{
 			Line:          txnbuild.CreditAsset{Code: balance.Code, Issuer: balance.Issuer},
 			Limit:         "0",
 			SourceAccount: holdingAccount,
 		}
-		operations = append(operations, &removetrust)
+		redeemOperations = append(redeemOperations, &removetrust)
 	}
 
 	mergeAccountOperation := txnbuild.AccountMerge{
 		Destination:   receiverAddress,
 		SourceAccount: holdingAccount,
 	}
+	redeemOperations = append(redeemOperations, &mergeAccountOperation)
 
-	operations = append(operations, &mergeAccountOperation)
+	return
+}
+
+func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
+	holdingAccount, err := stellar.GetAccount(cmd.holdingAccountAddress, client)
+	if err != nil {
+		return err
+	}
+	receiverAddress := cmd.ReceiverKeyPair.Address()
+	operations := createRedeemOperations(holdingAccount, receiverAddress)
+
 	redeemTransaction := txnbuild.Transaction{
 		Timebounds:    txnbuild.NewTimebounds(int64(0), int64(0)),
 		Operations:    operations,
@@ -828,7 +831,7 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 
 	txe, err := redeemTransaction.Base64()
 	if err != nil {
-		return fmt.Errorf("Unable to uncode the transaction: %v", err)
+		return fmt.Errorf("Unable to encode the transaction: %v", err)
 	}
 
 	txSuccess, err := stellar.SubmitTransaction(txe, client)

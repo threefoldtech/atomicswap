@@ -40,9 +40,9 @@ mz7DkWBB9JQrReutRbtwU5JZK5WEvQs3Md
 
 ### initiate step
 
-Bob initiates the process by using btcatomicswap to pay 0.05BTC into the Bitcoin contract using Alice's Bit coin address, sending the contract transaction, and sharing the secret hash (not the secret), and contract's transaction with Alice. The refund transaction can not be sent until the locktime expires, but should be saved in case a refund is necessary.
+Bob initiates the process by using btcatomicswap to pay 0.05BTC into the Bitcoin contract using Alice's Bitcoin address, sending the contract transaction, and sharing the secret hash (not the secret), and contract's transaction with Alice. The refund transaction can not be sent until the locktime expires, but should be saved in case a refund is necessary.
 
-command:`btcatomicswap [-testnet]initiate <participant address> <amount>`
+command:`btcatomicswap [-testnet] initiate <participant address> <amount>`
 
 ```sh
 $ ./btcatomicswap -testnet --rpcuser=user --rpcpass=pass -s  "localhost:7777" initiate mz7DkWBB9JQrReutRbtwU5JZK5WEvQs3Md  0.05
@@ -134,7 +134,7 @@ flags are available to automatically check the information in the contract.
 $ ./stellaratomicswap -testnet auditcontract GAKEMMQCWNRSOONRTWJ7KWGXPSR3RPIANJO5DQ4HDVIIZYVKO5JD3PN4 AAAAABRGMgKzYyc5sZ2T9VjXfKO4vQBqXdHDhx1QjOKqd1I9AAAAZAAASAwAAAACAAAAAQAAAABdvDFZAAAAAAAAAAAAAAAAAAAAAQAAAAEAAAAAFEYyArNjJzmxnZP1WNd8o7i9AGpd0cOHHVCM4qp3Uj0AAAAIAAAAAFxEZoM8d5VaCMNONACQzyzJH+lKpwZMqs1Aub3zrj6xAAAAAAAAAAA=
 Contract address:        GAKEMMQCWNRSOONRTWJ7KWGXPSR3RPIANJO5DQ4HDVIIZYVKO5JD3PN4
 Contract value:
-Amount: 0.0500000 Code: BTC Issuer: GDPHIMRSUSZNLNFWW7VJWWQ2NCH6D6ZVJ4RIME3FUGZLJRS3KKNIVYQ5 
+Amount: 0.0500000 Code: BTC Issuer: GDPHIMRSUSZNLNFWW7VJWWQ2NCH6D6ZVJ4RIME3FUGZLJRS3KKNIVYQ5
 Amount: 9.9999600 XLM
 Recipient address:       GADXVG3VLC7WQ5L3OQNFQ7XB7PPDSR3TVJ2PKJT4IEI5IJBXAZM7YUSL
 Refund address: GBOEIZUDHR3ZKWQIYNHDIAEQZ4WMSH7JJKTQMTFKZVALTPPTVY7LCRZV
