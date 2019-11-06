@@ -17,6 +17,9 @@ import (
 	"github.com/stellar/go/txnbuild"
 )
 
+//NativeAssetType is the value rturned by the horizon client for a the native asset
+const NativeAssetType = "native"
+
 //GenerateKeyPair creates a new stellar full keypair
 func GenerateKeyPair() (pair *keypair.Full, err error) {
 

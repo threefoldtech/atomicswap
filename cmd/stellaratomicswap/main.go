@@ -778,9 +778,9 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 		return err
 	}
 	receiverAddress := cmd.ReceiverKeyPair.Address()
-	operations := make([]txnbuild.Operation, 0, 2)
+	operations := make([]txnbuild.Operation, 0, 3)
 	for _, balance := range holdingAccount.Balances {
-		if balance.Code == "" && balance.Issuer == "" {
+		if balance.Asset.Type == stellar.NativeAssetType {
 			continue
 		}
 		payment := txnbuild.Payment{
@@ -792,7 +792,14 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 			}}
 		operations = append(operations, &payment)
 
+		removetrust := txnbuild.ChangeTrust{
+			Line:          txnbuild.CreditAsset{Code: balance.Code, Issuer: balance.Issuer},
+			Limit:         "0",
+			SourceAccount: holdingAccount,
+		}
+		operations = append(operations, &removetrust)
 	}
+
 	mergeAccountOperation := txnbuild.AccountMerge{
 		Destination:   receiverAddress,
 		SourceAccount: holdingAccount,
