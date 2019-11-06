@@ -112,7 +112,7 @@ AAAAAEnpYsKdTFfwq/9dqZ8LqTnCLhDPRB5BU+Mrcx4d1bbkAAAAZAAS0pUAAAACAAAAAQAAAABdqbf/
 ```
 
 The above command creates a holding account with 567 Lumen on it with modified signing conditions, matching the atomic swap conditiuons. [On a testnet explorer one can view the details of the holding account](
-https://testnet.steexp.com/account/GBE6SYWCTVGFP4FL75O2THYLVE44ELQQZ5CB4QKT4MVXGHQ52W3OJEJR).
+https://testnet.steexp.com/).Testnet is reset every quarter so this transaction might not be visible anymore.
 
 Alice now informs Bob that the Stellar contract account  has been created and provides him with the holding account address and the refund transaction.
 
