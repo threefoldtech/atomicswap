@@ -40,7 +40,7 @@ Configure and start Electrum as a daemon :
 
 ## Atomic swaps withouth an external wallet process
 
-* [Stellar](https://stellar.org) and Lumens: [StellarAtomicSwaps](cmd/stellaratomicswap/readme.md)
+* [Stellar](https://stellar.org) based assets and Lumens: [StellarAtomicSwaps](cmd/stellaratomicswap/readme.md)
 
 ## Roadmap
 
