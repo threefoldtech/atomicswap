@@ -21,7 +21,7 @@ Find more support coins/wallets on:
 
 Currently only the Bitcoin Electrum wallet is supported:
 
-* Bitcoin ([Electrum](https://electrum.org/))
+* Bitcoin ([Electrum](https://electrum.org/)): [BTCAtomicwap](./cmd/btcatomicswap
 
 #### Run Electrum as a daemon
 
@@ -38,7 +38,7 @@ Configure and start Electrum as a daemon :
 ./Electrum --testnet daemon load_wallet
 ```
 
-## Atomic swaps withouth an external wallet process
+## Atomic swaps without an external wallet process
 
 * [Stellar](https://stellar.org) based assets and Lumens: [StellarAtomicSwaps](cmd/stellaratomicswap/readme.md)
 
