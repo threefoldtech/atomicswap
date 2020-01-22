@@ -408,7 +408,7 @@ func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, cou
 		},
 		SourceAccount: holdingAccount,
 	}
-	setSigingWeightsOperation := txnbuild.SetOptions{
+	setSigningWeightsOperation := txnbuild.SetOptions{
 		MasterWeight:    txnbuild.NewThreshold(txnbuild.Threshold(uint8(0))),
 		LowThreshold:    txnbuild.NewThreshold(txnbuild.Threshold(2)),
 		MediumThreshold: txnbuild.NewThreshold(txnbuild.Threshold(2)),
@@ -421,7 +421,7 @@ func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, cou
 			&depositorSigningOperation,
 			&secretSigningOperation,
 			&refundSigningOperation,
-			&setSigingWeightsOperation,
+			&setSigningWeightsOperation,
 		},
 		Network:    network,
 		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
