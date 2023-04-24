@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -18,10 +17,12 @@ import (
 
 	"github.com/stellar/go/xdr"
 
+	"github.com/pkg/errors"
+
 	"github.com/stellar/go/strkey"
 
-	"github.com/stellar/go/clients/horizon"
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/protocols/horizon"
 	hprotocol "github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/txnbuild"
 	"github.com/threefoldtech/atomicswap/cmd/stellaratomicswap/stellar"
@@ -268,18 +269,26 @@ func run() (showUsage bool, err error) {
 		if err != nil {
 			return true, fmt.Errorf("invalid holding account address: %v", err)
 		}
-		refundTransaction, err := txnbuild.TransactionFromXDR(args[2])
+		genericTransaction, err := txnbuild.TransactionFromXDR(args[2])
 		if err != nil {
 			return true, fmt.Errorf("failed to decode refund transaction: %v", err)
 		}
-		cmd = &auditContractCmd{holdingAccountAdress: args[1], refundTx: refundTransaction}
+		refundTransaction, ok := genericTransaction.Transaction()
+		if !ok {
+			return true, errors.New("transaction XDR does not contain an actual transaction")
+		}
+		cmd = &auditContractCmd{holdingAccountAdress: args[1], refundTx: *refundTransaction}
 	case "refund":
 
-		refundTransaction, err := txnbuild.TransactionFromXDR(args[1])
+		genericTransaction, err := txnbuild.TransactionFromXDR(args[1])
 		if err != nil {
 			return true, fmt.Errorf("failed to decode refund transaction: %v", err)
 		}
-		cmd = &refundCmd{refundTx: refundTransaction}
+		refundTransaction, ok := genericTransaction.Transaction()
+		if !ok {
+			return true, errors.New("transaction XDR does not contain an actual transaction")
+		}
+		cmd = &refundCmd{refundTx: *refundTransaction}
 	case "redeem":
 
 		receiverKeypair, err := keypair.Parse(args[1])
@@ -319,7 +328,7 @@ func sha256Hash(x []byte) []byte {
 	h := sha256.Sum256(x)
 	return h[:]
 }
-func createRefundTransaction(holdingAccountAddress string, refundAccountAdress string, locktime time.Time, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
+func createRefundTransaction(holdingAccountAddress string, refundAccountAdress string, locktime time.Time, client horizonclient.ClientInterface) (refundTransaction *txnbuild.Transaction, err error) {
 	holdingAccount, err := stellar.GetAccount(holdingAccountAddress, client)
 	if err != nil {
 		return
@@ -332,14 +341,16 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 
 	operations := createRedeemOperations(holdingAccount, refundAccountAdress)
 
-	refundTransaction = txnbuild.Transaction{
-		Timebounds:    txnbuild.NewTimebounds(locktime.Unix(), int64(0)),
+	refundTransactionParams := txnbuild.TransactionParams{
 		Operations:    operations,
-		Network:       targetNetwork,
 		SourceAccount: holdingAccount,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewTimebounds(locktime.Unix(), int64(0)),
+		},
 	}
 
-	if err = refundTransaction.Build(); err != nil {
+	refundTransaction, err = txnbuild.NewTransaction(refundTransactionParams)
+	if err != nil {
 		err = fmt.Errorf("Failed to build the refund transaction: %s", err)
 		return
 	}
@@ -353,7 +364,7 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 //    that merges the escrow account to the account that needs to withdraw
 //    and that can only be published in the future ( timeout mechanism)
 
-//createHoldingAccount creates a new account to hold the atomic swap balance
+// createHoldingAccount creates a new account to hold the atomic swap balance
 func createHoldingAccount(holdingAccountAddress string, amount string, fundingKeyPair *keypair.Full, network string, asset txnbuild.Asset, client horizonclient.ClientInterface) (err error) {
 	fundingAccount, err := stellar.GetAccount(fundingKeyPair.Address(), client)
 	if err != nil {
@@ -363,13 +374,13 @@ func createHoldingAccount(holdingAccountAddress string, amount string, fundingKe
 	if err != nil {
 		return fmt.Errorf("Failed to create the holding account transaction: %s", err)
 	}
-	txe, err := createAccountTransaction.BuildSignEncode(fundingKeyPair)
+	tx, err := createAccountTransaction.Sign(network, fundingKeyPair)
 	if err != nil {
 		return fmt.Errorf("Failed to sign the holding account transaction: %s", err)
 	}
-	_, err = stellar.SubmitTransaction(txe, client)
+	_, err = stellar.SubmitTransaction(tx, client)
 	if err != nil {
-		accountID, err2 := createAccountTransaction.HashHex()
+		accountID, err2 := createAccountTransaction.HashHex(network)
 		if err2 != nil {
 			panic(err2)
 		}
@@ -377,14 +388,14 @@ func createHoldingAccount(holdingAccountAddress string, amount string, fundingKe
 	}
 	return
 }
-func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, counterPartyAddress string, secretHash []byte, refundTxHash []byte, network string) (setOptionsTransaction txnbuild.Transaction, err error) {
+func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, counterPartyAddress string, secretHash []byte, refundTxHash []byte, network string) (setOptionsTransaction *txnbuild.Transaction, err error) {
 
 	depositorSigningOperation := txnbuild.SetOptions{
 		Signer: &txnbuild.Signer{
 			Address: counterPartyAddress,
 			Weight:  1,
 		},
-		SourceAccount: holdingAccount,
+		SourceAccount: holdingAccount.GetAccountID(),
 	}
 	secretHashAddress, err := stellar.CreateHashxAddress(secretHash)
 	if err != nil {
@@ -395,7 +406,7 @@ func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, cou
 			Address: secretHashAddress,
 			Weight:  1,
 		},
-		SourceAccount: holdingAccount,
+		SourceAccount: holdingAccount.GetAccountID(),
 	}
 	refundTxHashAdddress, err := stellar.CreateHashTxAddress(refundTxHash)
 	if err != nil {
@@ -406,16 +417,16 @@ func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, cou
 			Address: refundTxHashAdddress,
 			Weight:  2,
 		},
-		SourceAccount: holdingAccount,
+		SourceAccount: holdingAccount.GetAccountID(),
 	}
 	setSigningWeightsOperation := txnbuild.SetOptions{
 		MasterWeight:    txnbuild.NewThreshold(txnbuild.Threshold(uint8(0))),
 		LowThreshold:    txnbuild.NewThreshold(txnbuild.Threshold(2)),
 		MediumThreshold: txnbuild.NewThreshold(txnbuild.Threshold(2)),
 		HighThreshold:   txnbuild.NewThreshold(txnbuild.Threshold(2)),
-		SourceAccount:   holdingAccount,
+		SourceAccount:   holdingAccount.GetAccountID(),
 	}
-	setOptionsTransaction = txnbuild.Transaction{
+	setOptionsTransactionParams := txnbuild.TransactionParams{
 		SourceAccount: holdingAccount, //TODO: check if this can be changed to the fundingaccount
 		Operations: []txnbuild.Operation{
 			&depositorSigningOperation,
@@ -423,9 +434,12 @@ func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, cou
 			&refundSigningOperation,
 			&setSigningWeightsOperation,
 		},
-		Network:    network,
-		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
+		},
 	}
+
+	setOptionsTransaction, err = txnbuild.NewTransaction(setOptionsTransactionParams)
 
 	return
 }
@@ -440,11 +454,11 @@ func setHoldingAccountSigningOptions(holdingAccountKeyPair *keypair.Full, counte
 	if err != nil {
 		return fmt.Errorf("Failed to create the signing options transaction: %s", err)
 	}
-	txe, err := setSigningOptionsTransaction.BuildSignEncode(holdingAccountKeyPair)
+	tx, err := setSigningOptionsTransaction.Sign(network, holdingAccountKeyPair)
 	if err != nil {
 		return fmt.Errorf("Failed to sign the signing options transaction: %s", err)
 	}
-	_, err = stellar.SubmitTransaction(txe, client)
+	_, err = stellar.SubmitTransaction(tx, client)
 	if err != nil {
 		return fmt.Errorf("Failed to publish the signing options transaction : %s", err)
 	}
@@ -457,9 +471,9 @@ func fundHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *key
 	}
 
 	changetrust := txnbuild.ChangeTrust{
-		Line:          txnbuild.CreditAsset{Code: asset.GetCode(), Issuer: asset.GetIssuer()},
+		Line:          txnbuild.ChangeTrustAssetWrapper{Asset: txnbuild.CreditAsset{Code: asset.GetCode(), Issuer: asset.GetIssuer()}},
 		Limit:         amount,
-		SourceAccount: holdingAccount,
+		SourceAccount: holdingAccount.GetAccountID(),
 	}
 	fundingAccount, err := stellar.GetAccount(fundingKeyPair.Address(), client)
 	if err != nil {
@@ -469,29 +483,35 @@ func fundHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *key
 		Destination:   holdingAccount.AccountID,
 		Amount:        amount,
 		Asset:         asset,
-		SourceAccount: fundingAccount,
+		SourceAccount: fundingAccount.GetAccountID(),
 	}
 
-	tx := txnbuild.Transaction{
+	txParams := txnbuild.TransactionParams{
 		SourceAccount: fundingAccount,
 		Operations:    []txnbuild.Operation{&changetrust, &payment},
-		Timebounds:    txnbuild.NewInfiniteTimeout(), // Use a real timeout in production!
-		Network:       targetNetwork,
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(), // Use a real timeout in production!
+		},
 	}
-	txe, err := tx.BuildSignEncode(holdingAccountKeyPair, fundingKeyPair)
+	tx, err := txnbuild.NewTransaction(txParams)
+	if err != nil {
+		err = errors.Wrap(err, "failed to build funding transaction")
+		return
+	}
+	txe, err := tx.Sign(targetNetwork, holdingAccountKeyPair, fundingKeyPair)
 	if err != nil {
 		err = fmt.Errorf("Failed to build,sign and encode the funding transaction: %v", err)
 		return
 	}
 	_, err = stellar.SubmitTransaction(txe, client)
 	if err != nil {
-		transactionID, _ := tx.HashHex()
+		transactionID, _ := tx.HashHex(targetNetwork)
 		err = fmt.Errorf("Failed to publish the funding transaction : %s\n%s", transactionID, err)
 		return
 	}
 	return
 }
-func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, counterPartyAddress string, amount string, secretHash []byte, locktime time.Time, asset txnbuild.Asset, client horizonclient.ClientInterface) (refundTransaction txnbuild.Transaction, err error) {
+func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccountKeyPair *keypair.Full, counterPartyAddress string, amount string, secretHash []byte, locktime time.Time, asset txnbuild.Asset, client horizonclient.ClientInterface) (refundTransaction *txnbuild.Transaction, err error) {
 
 	holdingAccountAddress := holdingAccountKeyPair.Address()
 
@@ -515,7 +535,7 @@ func createAtomicSwapHoldingAccount(fundingKeyPair *keypair.Full, holdingAccount
 	if err != nil {
 		return
 	}
-	refundTransactionHash, err := refundTransaction.Hash()
+	refundTransactionHash, err := refundTransaction.Hash(targetNetwork)
 	if err != nil {
 		err = fmt.Errorf("Failed to Hash the refund transaction: %s", err)
 		return
@@ -685,8 +705,8 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 		return errors.New("Missing recipient as signer")
 	}
 	//Compare the refund transaction hash in the signing condition to the one of the passed refund transaction
-	cmd.refundTx.Network = targetNetwork
-	refundTxHash, err := cmd.refundTx.Hash()
+	//cmd.refundTx.Network = targetNetwork TODO: Still required with new library or implied?
+	refundTxHash, err := cmd.refundTx.Hash(targetNetwork)
 	if err != nil {
 		return fmt.Errorf("Unable to hash the passed refund transaction: %v", err)
 	}
@@ -694,17 +714,17 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 		return errors.New("Refund transaction hash in the signing condition is not equal to the one of the passed refund transaction")
 	}
 	//and finally get the locktime and refund address
-	lockTime := cmd.refundTx.Timebounds.MinTime
-	if len(cmd.refundTx.Operations) != 1 {
-		return fmt.Errorf("Refund transaction is expected to have 1 operation instead of %d", len(cmd.refundTx.Operations))
+	lockTime := cmd.refundTx.Timebounds().MinTime
+	if len(cmd.refundTx.Operations()) != 1 {
+		return fmt.Errorf("Refund transaction is expected to have 1 operation instead of %d", len(cmd.refundTx.Operations()))
 	}
-	refundoperation := cmd.refundTx.Operations[0]
-	accountMergeOperation, ok := cmd.refundTx.Operations[0].(*txnbuild.AccountMerge)
+	refundoperation := cmd.refundTx.Operations()[0]
+	accountMergeOperation, ok := cmd.refundTx.Operations()[0].(*txnbuild.AccountMerge)
 	if !ok {
 		return fmt.Errorf("Expecting an accountmerge operation in the refund transaction but got a %v", reflect.TypeOf(refundoperation))
 	}
-	if accountMergeOperation.SourceAccount.GetAccountID() != cmd.holdingAccountAdress {
-		return fmt.Errorf("The refund transaction does not refund from the holding account but from %v", accountMergeOperation.SourceAccount.GetAccountID())
+	if accountMergeOperation.SourceAccount != cmd.holdingAccountAdress {
+		return fmt.Errorf("The refund transaction does not refund from the holding account but from %v", accountMergeOperation.SourceAccount)
 	}
 	refundAddress := accountMergeOperation.Destination
 	if !*automatedFlag {
@@ -755,16 +775,13 @@ func (cmd *auditContractCmd) runCommand(client horizonclient.ClientInterface) er
 }
 
 func (cmd *refundCmd) runCommand(client horizonclient.ClientInterface) error {
-	txe, err := cmd.refundTx.Base64()
-	if err != nil {
-		return err
-	}
-	result, err := stellar.SubmitTransaction(txe, client)
+	txe := cmd.refundTx
+	result, err := stellar.SubmitTransaction(&txe, client)
 	if err != nil {
 		return err
 	}
 	if !*automatedFlag {
-		fmt.Println(result.TransactionSuccessToString())
+		fmt.Println(result.ID) // FIXME: this was "result.TransactionSuccessToString()"
 	}
 	return nil
 }
@@ -785,16 +802,16 @@ func createRedeemOperations(holdingAccount *horizon.Account, receiverAddress str
 		redeemOperations = append(redeemOperations, &payment)
 
 		removetrust := txnbuild.ChangeTrust{
-			Line:          txnbuild.CreditAsset{Code: balance.Code, Issuer: balance.Issuer},
+			Line:          txnbuild.ChangeTrustAssetWrapper{Asset: txnbuild.CreditAsset{Code: balance.Code, Issuer: balance.Issuer}},
 			Limit:         "0",
-			SourceAccount: holdingAccount,
+			SourceAccount: holdingAccount.GetAccountID(),
 		}
 		redeemOperations = append(redeemOperations, &removetrust)
 	}
 
 	mergeAccountOperation := txnbuild.AccountMerge{
 		Destination:   receiverAddress,
-		SourceAccount: holdingAccount,
+		SourceAccount: holdingAccount.GetAccountID(),
 	}
 	redeemOperations = append(redeemOperations, &mergeAccountOperation)
 
@@ -809,38 +826,34 @@ func (cmd *redeemCmd) runCommand(client horizonclient.ClientInterface) error {
 	receiverAddress := cmd.ReceiverKeyPair.Address()
 	operations := createRedeemOperations(holdingAccount, receiverAddress)
 
-	redeemTransaction := txnbuild.Transaction{
-		Timebounds:    txnbuild.NewTimebounds(int64(0), int64(0)),
+	redeemTransactionParams := txnbuild.TransactionParams{
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewTimebounds(int64(0), int64(0)),
+		},
 		Operations:    operations,
-		Network:       targetNetwork,
 		SourceAccount: holdingAccount,
 	}
 
-	err = redeemTransaction.Build()
+	redeemTransaction, err := txnbuild.NewTransaction(redeemTransactionParams)
 	if err != nil {
 		return fmt.Errorf("Unable to build the transaction: %v", err)
 	}
-	err = redeemTransaction.SignHashX(cmd.secret)
+	redeemTransaction, err = redeemTransaction.SignHashX(cmd.secret)
 	if err != nil {
 		return fmt.Errorf("Unable to sign with the secret:%v", err)
 	}
-	err = redeemTransaction.Sign(cmd.ReceiverKeyPair)
+	redeemTransaction, err = redeemTransaction.Sign(targetNetwork, cmd.ReceiverKeyPair)
 	if err != nil {
 		return fmt.Errorf("Unable to sign with the receiver keypair:%v", err)
 	}
 
-	txe, err := redeemTransaction.Base64()
-	if err != nil {
-		return fmt.Errorf("Unable to encode the transaction: %v", err)
-	}
-
-	txSuccess, err := stellar.SubmitTransaction(txe, client)
+	txSuccess, err := stellar.SubmitTransaction(redeemTransaction, client)
 	if err != nil {
 		return err
 	}
 
 	if !*automatedFlag {
-		fmt.Println(txSuccess.TransactionSuccessToString())
+		fmt.Println(txSuccess.ID) // FIXME: this was txSuccess.TransactionSuccessToString()
 	} else {
 		output := struct {
 			RedeemTransactionTxHash string `json:"redeemTransaction"`

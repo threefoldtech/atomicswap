@@ -8,36 +8,36 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/protocols/horizon/effects"
 
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
-	"github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
 )
 
-//NativeAssetType is the value rturned by the horizon client for a the native asset
+// NativeAssetType is the value rturned by the horizon client for a the native asset
 const NativeAssetType = "native"
 
-//GenerateKeyPair creates a new stellar full keypair
+// GenerateKeyPair creates a new stellar full keypair
 func GenerateKeyPair() (pair *keypair.Full, err error) {
 
 	pair, err = keypair.Random()
 	return
 }
 
-//CreateHashxAddress creates the stellar address for a Hashx signer
+// CreateHashxAddress creates the stellar address for a Hashx signer
 func CreateHashxAddress(hash []byte) (address string, err error) {
 	return strkey.Encode(strkey.VersionByteHashX, hash)
 }
 
-//CreateHashTxAddress creates the stellar address for a HashTx signer
+// CreateHashTxAddress creates the stellar address for a HashTx signer
 func CreateHashTxAddress(hash []byte) (address string, err error) {
 	return strkey.Encode(strkey.VersionByteHashTx, hash)
 }
 
-//GetAccount returns information for a single account
+// GetAccount returns information for a single account
 func GetAccount(address string, client horizonclient.ClientInterface) (account *horizon.Account, err error) {
 	ar := horizonclient.AccountRequest{AccountID: address}
 	accountStruct, err := client.AccountDetail(ar)
@@ -54,7 +54,7 @@ func getIDFromLink(href string) string {
 	return splittedHref[len(splittedHref)-1]
 }
 
-//GetAccountDebitediTransactions returns the transactions that debited the account
+// GetAccountDebitediTransactions returns the transactions that debited the account
 func GetAccountDebitediTransactions(accountAddress string, client horizonclient.ClientInterface) (transactions []horizon.Transaction, err error) {
 	effectRequest := horizonclient.EffectRequest{ForAccount: accountAddress, Limit: 100}
 	effect, err := client.Effects(effectRequest)
@@ -86,7 +86,7 @@ func GetAccountDebitediTransactions(accountAddress string, client horizonclient.
 	return
 }
 
-//GetNetworkPassPhrase fetches the networkPassphrase from a client
+// GetNetworkPassPhrase fetches the networkPassphrase from a client
 func GetNetworkPassPhrase(client horizonclient.Client) (networkpassphrase string, err error) {
 	r, err := client.Root()
 	if err != nil {
@@ -97,31 +97,34 @@ func GetNetworkPassPhrase(client horizonclient.Client) (networkpassphrase string
 	return
 }
 
-//CreateAccountTransaction creates the transactio for creating a new account
-func CreateAccountTransaction(newccountAddress string, xlmAmount string, fundingAccount *horizon.Account, network string) (createAccountTransaction txnbuild.Transaction, err error) {
+// CreateAccountTransaction creates the transactio for creating a new account
+func CreateAccountTransaction(newccountAddress string, xlmAmount string, fundingAccount *horizon.Account, network string) (createAccountTransaction *txnbuild.Transaction, err error) {
 
 	accountCreationOperation := txnbuild.CreateAccount{
 		Destination:   newccountAddress,
 		Amount:        xlmAmount,
-		SourceAccount: fundingAccount,
+		SourceAccount: fundingAccount.GetAccountID(),
 	}
 
-	createAccountTransaction = txnbuild.Transaction{
+	createAccountTransactionParams := txnbuild.TransactionParams{
 		SourceAccount: fundingAccount,
 		Operations: []txnbuild.Operation{
 			&accountCreationOperation,
 		},
-		Network:    network,
-		Timebounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
+		},
 	}
+
+	createAccountTransaction, err = txnbuild.NewTransaction(createAccountTransactionParams)
 
 	return
 }
 
-//SubmitTransaction submits the transactio and provides a better formatted error on failure
-func SubmitTransaction(tx string, client horizonclient.ClientInterface) (txSuccess horizon.TransactionSuccess, err error) {
+// SubmitTransaction submits the transactio and provides a better formatted error on failure
+func SubmitTransaction(tx *txnbuild.Transaction, client horizonclient.ClientInterface) (txSuccess horizon.Transaction, err error) {
 
-	txSuccess, err = client.SubmitTransactionXDR(tx)
+	txSuccess, err = client.SubmitTransaction(tx)
 	if err != nil {
 		he := err.(*horizonclient.Error)
 		errordetail := (he.Problem.Detail)

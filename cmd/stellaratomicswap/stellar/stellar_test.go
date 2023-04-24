@@ -3,8 +3,8 @@ package stellar
 import (
 	"testing"
 
-	"github.com/stellar/go/clients/horizon"
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/protocols/horizon"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
