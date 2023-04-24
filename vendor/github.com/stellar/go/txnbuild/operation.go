@@ -1,6 +1,8 @@
 package txnbuild
 
 import (
+	"fmt"
+
 	"github.com/stellar/go/xdr"
 )
 
@@ -9,15 +11,16 @@ type Operation interface {
 	BuildXDR() (xdr.Operation, error)
 	FromXDR(xdrOp xdr.Operation) error
 	Validate() error
+	GetSourceAccount() string
 }
 
-// SetOpSourceAccount sets the source account ID on an Operation.
-func SetOpSourceAccount(op *xdr.Operation, sourceAccount Account) {
-	if sourceAccount == nil {
+// SetOpSourceAccount sets the source account ID on an Operation, allowing M-strkeys (as defined in SEP23).
+func SetOpSourceAccount(op *xdr.Operation, sourceAccount string) {
+	if sourceAccount == "" {
 		return
 	}
-	var opSourceAccountID xdr.AccountId
-	opSourceAccountID.SetAddress(sourceAccount.GetAccountID())
+	var opSourceAccountID xdr.MuxedAccount
+	opSourceAccountID.SetAddress(sourceAccount)
 	op.SourceAccount = &opSourceAccountID
 }
 
@@ -53,16 +56,37 @@ func operationFromXDR(xdrOp xdr.Operation) (Operation, error) {
 		newOp = &ManageBuyOffer{}
 	case xdr.OperationTypePathPaymentStrictSend:
 		newOp = &PathPaymentStrictSend{}
+	case xdr.OperationTypeBeginSponsoringFutureReserves:
+		newOp = &BeginSponsoringFutureReserves{}
+	case xdr.OperationTypeEndSponsoringFutureReserves:
+		newOp = &EndSponsoringFutureReserves{}
+	case xdr.OperationTypeCreateClaimableBalance:
+		newOp = &CreateClaimableBalance{}
+	case xdr.OperationTypeClaimClaimableBalance:
+		newOp = &ClaimClaimableBalance{}
+	case xdr.OperationTypeRevokeSponsorship:
+		newOp = &RevokeSponsorship{}
+	case xdr.OperationTypeClawback:
+		newOp = &Clawback{}
+	case xdr.OperationTypeClawbackClaimableBalance:
+		newOp = &ClawbackClaimableBalance{}
+	case xdr.OperationTypeSetTrustLineFlags:
+		newOp = &SetTrustLineFlags{}
+	case xdr.OperationTypeLiquidityPoolDeposit:
+		newOp = &LiquidityPoolDeposit{}
+	case xdr.OperationTypeLiquidityPoolWithdraw:
+		newOp = &LiquidityPoolWithdraw{}
+	default:
+		return nil, fmt.Errorf("unknown operation type: %d", xdrOp.Body.Type)
 	}
 
 	err := newOp.FromXDR(xdrOp)
 	return newOp, err
 }
 
-// accountFromXDR returns a txnbuild Account from a XDR Account.
-func accountFromXDR(account *xdr.AccountId) Account {
+func accountFromXDR(account *xdr.MuxedAccount) string {
 	if account != nil {
-		return &SimpleAccount{AccountID: account.Address()}
+		return account.Address()
 	}
-	return nil
+	return ""
 }

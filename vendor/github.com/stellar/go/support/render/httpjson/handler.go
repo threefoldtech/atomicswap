@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/support/http/httpdecode"
 	"github.com/stellar/go/support/render/problem"
 )
 
@@ -82,9 +83,9 @@ func (h *handler) executeFunc(ctx context.Context, req *http.Request) (interface
 	if h.inType != nil {
 		if h.readFromBody {
 			inPtr := reflect.New(h.inType)
-			err := read(req.Body, inPtr.Interface())
+			err := httpdecode.DecodeJSON(req, inPtr.Interface())
 			if err != nil {
-				return nil, err
+				return nil, ErrBadRequest
 			}
 			a = append(a, inPtr.Elem())
 		} else {
@@ -139,7 +140,7 @@ func ExecuteFunc(ctx context.Context, fn, param interface{}, cType contentType) 
 // functions with certain signatures.
 // The allowed function signature is as following:
 //
-//   func fn(ctx context.Context, an_optional_param) (at_most_two_return_values)
+//	func fn(ctx context.Context, an_optional_param) (at_most_two_return_values)
 //
 // The caller must provide a function with at least 1 input (request context)
 // and up to 2 inputs, and up to 2 return values. If there are two return

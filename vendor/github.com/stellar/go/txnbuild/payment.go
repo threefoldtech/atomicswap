@@ -7,19 +7,20 @@ import (
 )
 
 // Payment represents the Stellar payment operation. See
-// https://www.stellar.org/developers/guides/concepts/list-of-operations.html
+// https://developers.stellar.org/docs/start/list-of-operations/
 type Payment struct {
 	Destination   string
 	Amount        string
 	Asset         Asset
-	SourceAccount Account
+	SourceAccount string
 }
 
 // BuildXDR for Payment returns a fully configured XDR Operation.
-func (p *Payment) BuildXDR() (xdr.Operation, error) {
-	var destAccountID xdr.AccountId
 
-	err := destAccountID.SetAddress(p.Destination)
+func (p *Payment) BuildXDR() (xdr.Operation, error) {
+	var destMuxedAccount xdr.MuxedAccount
+
+	err := destMuxedAccount.SetAddress(p.Destination)
 	if err != nil {
 		return xdr.Operation{}, errors.Wrap(err, "failed to set destination address")
 	}
@@ -39,7 +40,7 @@ func (p *Payment) BuildXDR() (xdr.Operation, error) {
 
 	opType := xdr.OperationTypePayment
 	xdrOp := xdr.PaymentOp{
-		Destination: destAccountID,
+		Destination: destMuxedAccount,
 		Amount:      xdrAmount,
 		Asset:       xdrAsset,
 	}
@@ -61,6 +62,7 @@ func (p *Payment) FromXDR(xdrOp xdr.Operation) error {
 
 	p.SourceAccount = accountFromXDR(xdrOp.SourceAccount)
 	p.Destination = result.Destination.Address()
+
 	p.Amount = amount.String(result.Amount)
 
 	asset, err := assetFromXDR(result.Asset)
@@ -75,7 +77,8 @@ func (p *Payment) FromXDR(xdrOp xdr.Operation) error {
 // Validate for Payment validates the required struct fields. It returns an error if any
 // of the fields are invalid. Otherwise, it returns nil.
 func (p *Payment) Validate() error {
-	err := validateStellarPublicKey(p.Destination)
+	_, err := xdr.AddressToMuxedAccount(p.Destination)
+
 	if err != nil {
 		return NewValidationError("Destination", err.Error())
 	}
@@ -91,4 +94,10 @@ func (p *Payment) Validate() error {
 	}
 
 	return nil
+}
+
+// GetSourceAccount returns the source account of the operation, or the empty string if not
+// set.
+func (p *Payment) GetSourceAccount() string {
+	return p.SourceAccount
 }

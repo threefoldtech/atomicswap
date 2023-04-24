@@ -6,16 +6,15 @@ import (
 )
 
 // AccountMerge represents the Stellar merge account operation. See
-// https://www.stellar.org/developers/guides/concepts/list-of-operations.html
+// https://developers.stellar.org/docs/start/list-of-operations/
 type AccountMerge struct {
 	Destination   string
-	SourceAccount Account
+	SourceAccount string
 }
 
 // BuildXDR for AccountMerge returns a fully configured XDR Operation.
 func (am *AccountMerge) BuildXDR() (xdr.Operation, error) {
-	var xdrOp xdr.AccountId
-
+	var xdrOp xdr.MuxedAccount
 	err := xdrOp.SetAddress(am.Destination)
 	if err != nil {
 		return xdr.Operation{}, errors.Wrap(err, "failed to set destination address")
@@ -48,9 +47,16 @@ func (am *AccountMerge) FromXDR(xdrOp xdr.Operation) error {
 // Validate for AccountMerge validates the required struct fields. It returns an error if any of the fields are
 // invalid. Otherwise, it returns nil.
 func (am *AccountMerge) Validate() error {
-	err := validateStellarPublicKey(am.Destination)
+	var err error
+	_, err = xdr.AddressToMuxedAccount(am.Destination)
 	if err != nil {
 		return NewValidationError("Destination", err.Error())
 	}
 	return nil
+}
+
+// GetSourceAccount returns the source account of the operation, or the empty string if not
+// set.
+func (am *AccountMerge) GetSourceAccount() string {
+	return am.SourceAccount
 }

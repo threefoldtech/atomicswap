@@ -47,6 +47,27 @@ struct StellarValue
     ext;
 };
 
+const MASK_LEDGER_HEADER_FLAGS = 0x7;
+
+enum LedgerHeaderFlags
+{
+    DISABLE_LIQUIDITY_POOL_TRADING_FLAG = 0x1,
+    DISABLE_LIQUIDITY_POOL_DEPOSIT_FLAG = 0x2,
+    DISABLE_LIQUIDITY_POOL_WITHDRAWAL_FLAG = 0x4
+};
+
+struct LedgerHeaderExtensionV1
+{
+    uint32 flags; // LedgerHeaderFlags
+
+    union switch (int v)
+    {
+    case 0:
+        void;
+    }
+    ext;
+};
+
 /* The LedgerHeader is the highest level structure representing the
  * state of a ledger, cryptographically linked to previous ledgers.
  */
@@ -84,6 +105,8 @@ struct LedgerHeader
     {
     case 0:
         void;
+    case 1:
+        LedgerHeaderExtensionV1 v1;
     }
     ext;
 };
@@ -98,7 +121,8 @@ enum LedgerUpgradeType
     LEDGER_UPGRADE_VERSION = 1,
     LEDGER_UPGRADE_BASE_FEE = 2,
     LEDGER_UPGRADE_MAX_TX_SET_SIZE = 3,
-    LEDGER_UPGRADE_BASE_RESERVE = 4
+    LEDGER_UPGRADE_BASE_RESERVE = 4,
+    LEDGER_UPGRADE_FLAGS = 5
 };
 
 union LedgerUpgrade switch (LedgerUpgradeType type)
@@ -111,40 +135,11 @@ case LEDGER_UPGRADE_MAX_TX_SET_SIZE:
     uint32 newMaxTxSetSize; // update maxTxSetSize
 case LEDGER_UPGRADE_BASE_RESERVE:
     uint32 newBaseReserve; // update baseReserve
+case LEDGER_UPGRADE_FLAGS:
+    uint32 newFlags; // update flags
 };
 
 /* Entries used to define the bucket list */
-
-union LedgerKey switch (LedgerEntryType type)
-{
-case ACCOUNT:
-    struct
-    {
-        AccountID accountID;
-    } account;
-
-case TRUSTLINE:
-    struct
-    {
-        AccountID accountID;
-        Asset asset;
-    } trustLine;
-
-case OFFER:
-    struct
-    {
-        AccountID sellerID;
-        int64 offerID;
-    } offer;
-
-case DATA:
-    struct
-    {
-        AccountID accountID;
-        string64 dataName;
-    } data;
-};
-
 enum BucketEntryType
 {
     METAENTRY =
@@ -181,12 +176,48 @@ case METAENTRY:
     BucketMetadata metaEntry;
 };
 
+enum TxSetComponentType
+{
+  // txs with effective fee <= bid derived from a base fee (if any).
+  // If base fee is not specified, no discount is applied.
+  TXSET_COMP_TXS_MAYBE_DISCOUNTED_FEE = 0
+};
+
+union TxSetComponent switch (TxSetComponentType type)
+{
+case TXSET_COMP_TXS_MAYBE_DISCOUNTED_FEE:
+  struct
+  {
+    int64* baseFee;
+    TransactionEnvelope txs<>;
+  } txsMaybeDiscountedFee;
+};
+
+union TransactionPhase switch (int v)
+{
+case 0:
+    TxSetComponent v0Components<>;
+};
+
 // Transaction sets are the unit used by SCP to decide on transitions
 // between ledgers
 struct TransactionSet
 {
     Hash previousLedgerHash;
     TransactionEnvelope txs<>;
+};
+
+struct TransactionSetV1
+{
+    Hash previousLedgerHash;
+    TransactionPhase phases<>;
+};
+
+union GeneralizedTransactionSet switch (int v)
+{
+// We consider the legacy TransactionSet to be v0.
+case 1:
+    TransactionSetV1 v1TxSet;
 };
 
 struct TransactionResultPair
@@ -208,11 +239,13 @@ struct TransactionHistoryEntry
     uint32 ledgerSeq;
     TransactionSet txSet;
 
-    // reserved for future use
+    // when v != 0, txSet must be empty
     union switch (int v)
     {
     case 0:
         void;
+    case 1:
+        GeneralizedTransactionSet generalizedTxSet;
     }
     ext;
 };
@@ -306,6 +339,15 @@ struct TransactionMetaV1
     OperationMeta operations<>;   // meta for each operation
 };
 
+struct TransactionMetaV2
+{
+    LedgerEntryChanges txChangesBefore; // tx level changes before operations
+                                        // are applied if any
+    OperationMeta operations<>;         // meta for each operation
+    LedgerEntryChanges txChangesAfter;  // tx level changes after operations are
+                                        // applied if any
+};
+
 // this is the meta produced when applying transactions
 // it does not include pre-apply updates such as fees
 union TransactionMeta switch (int v)
@@ -314,5 +356,69 @@ case 0:
     OperationMeta operations<>;
 case 1:
     TransactionMetaV1 v1;
+case 2:
+    TransactionMetaV2 v2;
+};
+
+// This struct groups together changes on a per transaction basis
+// note however that fees and transaction application are done in separate
+// phases
+struct TransactionResultMeta
+{
+    TransactionResultPair result;
+    LedgerEntryChanges feeProcessing;
+    TransactionMeta txApplyProcessing;
+};
+
+// this represents a single upgrade that was performed as part of a ledger
+// upgrade
+struct UpgradeEntryMeta
+{
+    LedgerUpgrade upgrade;
+    LedgerEntryChanges changes;
+};
+
+struct LedgerCloseMetaV0
+{
+    LedgerHeaderHistoryEntry ledgerHeader;
+    // NB: txSet is sorted in "Hash order"
+    TransactionSet txSet;
+
+    // NB: transactions are sorted in apply order here
+    // fees for all transactions are processed first
+    // followed by applying transactions
+    TransactionResultMeta txProcessing<>;
+
+    // upgrades are applied last
+    UpgradeEntryMeta upgradesProcessing<>;
+
+    // other misc information attached to the ledger close
+    SCPHistoryEntry scpInfo<>;
+};
+
+struct LedgerCloseMetaV1
+{
+    LedgerHeaderHistoryEntry ledgerHeader;
+
+    GeneralizedTransactionSet txSet;
+
+    // NB: transactions are sorted in apply order here
+    // fees for all transactions are processed first
+    // followed by applying transactions
+    TransactionResultMeta txProcessing<>;
+
+    // upgrades are applied last
+    UpgradeEntryMeta upgradesProcessing<>;
+
+    // other misc information attached to the ledger close
+    SCPHistoryEntry scpInfo<>;
+};
+
+union LedgerCloseMeta switch (int v)
+{
+case 0:
+    LedgerCloseMetaV0 v0;
+case 1:
+    LedgerCloseMetaV1 v1;
 };
 }

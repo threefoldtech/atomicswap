@@ -2,20 +2,19 @@ package txnbuild
 
 import (
 	"github.com/stellar/go/amount"
-	"github.com/stellar/go/price"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 )
 
 // ManageBuyOffer represents the Stellar manage buy offer operation. See
-// https://www.stellar.org/developers/guides/concepts/list-of-operations.html
+// https://developers.stellar.org/docs/start/list-of-operations/
 type ManageBuyOffer struct {
 	Selling       Asset
 	Buying        Asset
 	Amount        string
-	Price         string
+	Price         xdr.Price
 	OfferID       int64
-	SourceAccount Account
+	SourceAccount string
 }
 
 // BuildXDR for ManageBuyOffer returns a fully configured XDR Operation.
@@ -35,17 +34,12 @@ func (mo *ManageBuyOffer) BuildXDR() (xdr.Operation, error) {
 		return xdr.Operation{}, errors.Wrap(err, "failed to parse 'Amount'")
 	}
 
-	xdrPrice, err := price.Parse(mo.Price)
-	if err != nil {
-		return xdr.Operation{}, errors.Wrap(err, "failed to parse 'Price'")
-	}
-
 	opType := xdr.OperationTypeManageBuyOffer
 	xdrOp := xdr.ManageBuyOfferOp{
 		Selling:   xdrSelling,
 		Buying:    xdrBuying,
 		BuyAmount: xdrAmount,
-		Price:     xdrPrice,
+		Price:     mo.Price,
 		OfferId:   xdr.Int64(mo.OfferID),
 	}
 	body, err := xdr.NewOperationBody(opType, xdrOp)
@@ -68,9 +62,7 @@ func (mo *ManageBuyOffer) FromXDR(xdrOp xdr.Operation) error {
 	mo.SourceAccount = accountFromXDR(xdrOp.SourceAccount)
 	mo.OfferID = int64(result.OfferId)
 	mo.Amount = amount.String(result.BuyAmount)
-	if result.Price != (xdr.Price{}) {
-		mo.Price = price.StringFromFloat64(float64(result.Price.N) / float64(result.Price.D))
-	}
+	mo.Price = result.Price
 	buyingAsset, err := assetFromXDR(result.Buying)
 	if err != nil {
 		return errors.Wrap(err, "error parsing buying_asset in manage_buy_offer operation")
@@ -89,4 +81,10 @@ func (mo *ManageBuyOffer) FromXDR(xdrOp xdr.Operation) error {
 // of the fields are invalid. Otherwise, it returns nil.
 func (mo *ManageBuyOffer) Validate() error {
 	return validateOffer(mo.Buying, mo.Selling, mo.Amount, mo.Price, mo.OfferID)
+}
+
+// GetSourceAccount returns the source account of the operation, or the empty string if not
+// set.
+func (mo *ManageBuyOffer) GetSourceAccount() string {
+	return mo.SourceAccount
 }

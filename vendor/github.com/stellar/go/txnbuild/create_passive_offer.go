@@ -2,19 +2,18 @@ package txnbuild
 
 import (
 	"github.com/stellar/go/amount"
-	"github.com/stellar/go/price"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 )
 
 // CreatePassiveSellOffer represents the Stellar create passive offer operation. See
-// https://www.stellar.org/developers/guides/concepts/list-of-operations.html
+// https://developers.stellar.org/docs/start/list-of-operations/
 type CreatePassiveSellOffer struct {
 	Selling       Asset
 	Buying        Asset
 	Amount        string
-	Price         string
-	SourceAccount Account
+	Price         xdr.Price
+	SourceAccount string
 }
 
 // BuildXDR for CreatePassiveSellOffer returns a fully configured XDR Operation.
@@ -34,16 +33,11 @@ func (cpo *CreatePassiveSellOffer) BuildXDR() (xdr.Operation, error) {
 		return xdr.Operation{}, errors.Wrap(err, "failed to parse 'Amount'")
 	}
 
-	xdrPrice, err := price.Parse(cpo.Price)
-	if err != nil {
-		return xdr.Operation{}, errors.Wrap(err, "failed to parse 'Price'")
-	}
-
 	xdrOp := xdr.CreatePassiveSellOfferOp{
 		Selling: xdrSelling,
 		Buying:  xdrBuying,
 		Amount:  xdrAmount,
-		Price:   xdrPrice,
+		Price:   cpo.Price,
 	}
 
 	opType := xdr.OperationTypeCreatePassiveSellOffer
@@ -53,6 +47,7 @@ func (cpo *CreatePassiveSellOffer) BuildXDR() (xdr.Operation, error) {
 	}
 	op := xdr.Operation{Body: body}
 	SetOpSourceAccount(&op, cpo.SourceAccount)
+
 	return op, nil
 }
 
@@ -65,9 +60,7 @@ func (cpo *CreatePassiveSellOffer) FromXDR(xdrOp xdr.Operation) error {
 
 	cpo.SourceAccount = accountFromXDR(xdrOp.SourceAccount)
 	cpo.Amount = amount.String(result.Amount)
-	if result.Price != (xdr.Price{}) {
-		cpo.Price = price.StringFromFloat64(float64(result.Price.N) / float64(result.Price.D))
-	}
+	cpo.Price = result.Price
 	buyingAsset, err := assetFromXDR(result.Buying)
 	if err != nil {
 		return errors.Wrap(err, "error parsing buying_asset in create_passive_sell_offer operation")
@@ -86,4 +79,10 @@ func (cpo *CreatePassiveSellOffer) FromXDR(xdrOp xdr.Operation) error {
 // of the fields are invalid. Otherwise, it returns nil.
 func (cpo *CreatePassiveSellOffer) Validate() error {
 	return validatePassiveOffer(cpo.Buying, cpo.Selling, cpo.Amount, cpo.Price)
+}
+
+// GetSourceAccount returns the source account of the operation, or the empty string if not
+// set.
+func (cpo *CreatePassiveSellOffer) GetSourceAccount() string {
+	return cpo.SourceAccount
 }

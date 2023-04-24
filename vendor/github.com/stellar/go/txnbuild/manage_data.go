@@ -6,11 +6,11 @@ import (
 )
 
 // ManageData represents the Stellar manage data operation. See
-// https://www.stellar.org/developers/guides/concepts/list-of-operations.html
+// https://developers.stellar.org/docs/start/list-of-operations/
 type ManageData struct {
 	Name          string
 	Value         []byte
-	SourceAccount Account
+	SourceAccount string
 }
 
 // BuildXDR for ManageData returns a fully configured XDR Operation.
@@ -44,7 +44,11 @@ func (md *ManageData) FromXDR(xdrOp xdr.Operation) error {
 
 	md.SourceAccount = accountFromXDR(xdrOp.SourceAccount)
 	md.Name = string(result.DataName)
-	md.Value = *result.DataValue
+	if result.DataValue != nil {
+		md.Value = *result.DataValue
+	} else {
+		md.Value = nil
+	}
 	return nil
 }
 
@@ -59,4 +63,10 @@ func (md *ManageData) Validate() error {
 		return NewValidationError("Value", "maximum length is 64 bytes")
 	}
 	return nil
+}
+
+// GetSourceAccount returns the source account of the operation, or the empty string if not
+// set.
+func (md *ManageData) GetSourceAccount() string {
+	return md.SourceAccount
 }

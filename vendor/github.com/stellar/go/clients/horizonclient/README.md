@@ -1,7 +1,7 @@
 # horizonclient
 
 
-`horizonclient` is a [Stellar Go SDK](https://www.stellar.org/developers/reference/) package that provides client access to a horizon server. It supports all endpoints exposed by the [horizon API](https://www.stellar.org/developers/horizon/reference/index.html).
+`horizonclient` is a [Stellar Go SDK](https://developers.stellar.org/api/) package that provides client access to a horizon server. It supports all endpoints exposed by the [horizon API](https://developers.stellar.org/api/introduction/).
 
 This project is maintained by the Stellar Development Foundation.
 
@@ -12,7 +12,7 @@ This library is aimed at developers building Go applications that interact with 
 * The [txnbuild API reference](https://godoc.org/github.com/stellar/go/txnbuild).
 
 ### Prerequisites
-* Go 1.12 or greater
+* Go (this repository is officially supported on the last two releases of Go)
 * [Modules](https://github.com/golang/go/wiki/Modules) to manage dependencies
 
 ### Installing
@@ -51,4 +51,4 @@ Please read [Code of Conduct](https://github.com/stellar/.github/blob/master/COD
 To submit improvements and fixes to this library, please see [CONTRIBUTING](../CONTRIBUTING.md).
 
 ## License
-This project is licensed under the Apache License - see the [LICENSE](../../LICENSE-APACHE.txt) file for details.
+This project is licensed under the Apache License - see the [LICENSE](../../LICENSE) file for details.

@@ -102,22 +102,28 @@ github.com/ethereum/go-ethereum/trie
 # github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
 ## explicit
 github.com/gballet/go-libpcsclite
+# github.com/go-chi/chi v4.0.3+incompatible
+## explicit
+github.com/go-chi/chi
 # github.com/go-errors/errors v1.0.1
 ## explicit
 github.com/go-errors/errors
 # github.com/go-stack/stack v1.8.0
 ## explicit
 github.com/go-stack/stack
-# github.com/golang/protobuf v1.3.2
-## explicit
+# github.com/golang/protobuf v1.5.2
+## explicit; go 1.9
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/protoc-gen-go/descriptor
 # github.com/golang/snappy v0.0.1
 ## explicit
 github.com/golang/snappy
-# github.com/google/uuid v1.1.1
+# github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
+# github.com/gorilla/schema v1.1.0
+## explicit
+github.com/gorilla/schema
 # github.com/gorilla/websocket v1.4.1
 ## explicit; go 1.12
 github.com/gorilla/websocket
@@ -147,9 +153,6 @@ github.com/konsorten/go-windows-terminal-sequences
 ## explicit
 # github.com/lib/pq v1.2.0
 ## explicit
-github.com/lib/pq
-github.com/lib/pq/oid
-github.com/lib/pq/scram
 # github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739
 ## explicit
 github.com/manucorporat/sse
@@ -162,7 +165,7 @@ github.com/olekukonko/tablewriter
 # github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
 ## explicit
 github.com/pborman/uuid
-# github.com/pkg/errors v0.8.1
+# github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
@@ -193,25 +196,23 @@ github.com/steakknife/bloomfilter
 # github.com/steakknife/hamming v0.0.0-20180906055317-003c143a81c2
 ## explicit
 github.com/steakknife/hamming
-# github.com/stellar/go v0.0.0-20191017101339-613572f47839
-## explicit; go 1.12
+# github.com/stellar/go v0.0.0-20230420111333-3274d0f71fbc
+## explicit; go 1.19
 github.com/stellar/go/amount
-github.com/stellar/go/build
-github.com/stellar/go/clients/horizon
 github.com/stellar/go/clients/horizonclient
-github.com/stellar/go/crc16
 github.com/stellar/go/hash
 github.com/stellar/go/keypair
 github.com/stellar/go/network
-github.com/stellar/go/price
 github.com/stellar/go/protocols/horizon
 github.com/stellar/go/protocols/horizon/base
 github.com/stellar/go/protocols/horizon/effects
 github.com/stellar/go/protocols/horizon/operations
 github.com/stellar/go/strkey
-github.com/stellar/go/support/app
+github.com/stellar/go/strkey/internal/crc16
 github.com/stellar/go/support/clock
+github.com/stellar/go/support/collections/set
 github.com/stellar/go/support/errors
+github.com/stellar/go/support/http/httpdecode
 github.com/stellar/go/support/log
 github.com/stellar/go/support/render/hal
 github.com/stellar/go/support/render/httpjson
@@ -219,14 +220,14 @@ github.com/stellar/go/support/render/problem
 github.com/stellar/go/support/url
 github.com/stellar/go/txnbuild
 github.com/stellar/go/xdr
-# github.com/stellar/go-xdr v0.0.0-20180917104419-0bc96f33a18e
-## explicit
+# github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee
+## explicit; go 1.12
 github.com/stellar/go-xdr/xdr3
-# github.com/stretchr/objx v0.1.1
-## explicit
+# github.com/stretchr/objx v0.3.0
+## explicit; go 1.12
 github.com/stretchr/objx
-# github.com/stretchr/testify v1.4.0
-## explicit
+# github.com/stretchr/testify v1.7.0
+## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
 # github.com/syndtr/goleveldb v1.0.0
@@ -250,28 +251,32 @@ github.com/tyler-smith/go-bip39/wordlists
 # github.com/wsddn/go-ecdh v0.0.0-20161211032359-48726bab9208
 ## explicit
 github.com/wsddn/go-ecdh
-# golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
-## explicit
+# golang.org/x/crypto v0.0.0-20220214200702-86341886e292
+## explicit; go 1.17
 golang.org/x/crypto/curve25519
-golang.org/x/crypto/ed25519
-golang.org/x/crypto/ed25519/internal/edwards25519
+golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ripemd160
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
-## explicit; go 1.11
+# golang.org/x/net v0.0.0-20220225172249-27dd8689420f
+## explicit; go 1.17
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
-# golang.org/x/sys v0.0.0-20191020212454-3e7259c5e7c2
-## explicit; go 1.12
+# golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9
+## explicit; go 1.17
 golang.org/x/sys/cpu
+golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.2
-## explicit
+# golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
+## explicit; go 1.17
+golang.org/x/term
+# golang.org/x/text v0.3.7
+## explicit; go 1.17
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -290,6 +295,35 @@ golang.org/x/text/language
 golang.org/x/text/runes
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
+# google.golang.org/protobuf v1.26.0
+## explicit; go 1.9
+google.golang.org/protobuf/encoding/prototext
+google.golang.org/protobuf/encoding/protowire
+google.golang.org/protobuf/internal/descfmt
+google.golang.org/protobuf/internal/descopts
+google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/encoding/defval
+google.golang.org/protobuf/internal/encoding/messageset
+google.golang.org/protobuf/internal/encoding/tag
+google.golang.org/protobuf/internal/encoding/text
+google.golang.org/protobuf/internal/errors
+google.golang.org/protobuf/internal/filedesc
+google.golang.org/protobuf/internal/filetype
+google.golang.org/protobuf/internal/flags
+google.golang.org/protobuf/internal/genid
+google.golang.org/protobuf/internal/impl
+google.golang.org/protobuf/internal/order
+google.golang.org/protobuf/internal/pragma
+google.golang.org/protobuf/internal/set
+google.golang.org/protobuf/internal/strs
+google.golang.org/protobuf/internal/version
+google.golang.org/protobuf/proto
+google.golang.org/protobuf/reflect/protodesc
+google.golang.org/protobuf/reflect/protoreflect
+google.golang.org/protobuf/reflect/protoregistry
+google.golang.org/protobuf/runtime/protoiface
+google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/descriptorpb
 # gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 ## explicit
 gopkg.in/natefinch/npipe.v2
@@ -297,6 +331,8 @@ gopkg.in/natefinch/npipe.v2
 ## explicit
 # gopkg.in/urfave/cli.v1 v1.20.0
 ## explicit
-# gopkg.in/yaml.v2 v2.2.4
+# gopkg.in/yaml.v2 v2.2.8
 ## explicit
-gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+## explicit
+gopkg.in/yaml.v3

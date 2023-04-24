@@ -7,7 +7,7 @@ import (
 )
 
 // PathPaymentStrictSend represents the Stellar path_payment_strict_send operation. See
-// https://www.stellar.org/developers/guides/concepts/list-of-operations.html
+// https://developers.stellar.org/docs/start/list-of-operations/
 type PathPaymentStrictSend struct {
 	SendAsset     Asset
 	SendAmount    string
@@ -15,7 +15,7 @@ type PathPaymentStrictSend struct {
 	DestAsset     Asset
 	DestMin       string
 	Path          []Asset
-	SourceAccount Account
+	SourceAccount string
 }
 
 // BuildXDR for Payment returns a fully configured XDR Operation.
@@ -36,7 +36,7 @@ func (pp *PathPaymentStrictSend) BuildXDR() (xdr.Operation, error) {
 	}
 
 	// Set XDR destination
-	var xdrDestination xdr.AccountId
+	var xdrDestination xdr.MuxedAccount
 	err = xdrDestination.SetAddress(pp.Destination)
 	if err != nil {
 		return xdr.Operation{}, errors.Wrap(err, "failed to set destination address")
@@ -125,7 +125,7 @@ func (pp *PathPaymentStrictSend) FromXDR(xdrOp xdr.Operation) error {
 // Validate for PathPaymentStrictSend validates the required struct fields. It returns an error if any
 // of the fields are invalid. Otherwise, it returns nil.
 func (pp *PathPaymentStrictSend) Validate() error {
-	err := validateStellarPublicKey(pp.Destination)
+	_, err := xdr.AddressToMuxedAccount(pp.Destination)
 	if err != nil {
 		return NewValidationError("Destination", err.Error())
 	}
@@ -151,4 +151,10 @@ func (pp *PathPaymentStrictSend) Validate() error {
 	}
 
 	return nil
+}
+
+// GetSourceAccount returns the source account of the operation, or the empty string if not
+// set.
+func (pp *PathPaymentStrictSend) GetSourceAccount() string {
+	return pp.SourceAccount
 }
