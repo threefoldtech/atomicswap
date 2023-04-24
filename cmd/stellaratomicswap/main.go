@@ -25,7 +25,7 @@ import (
 	"github.com/stellar/go/protocols/horizon"
 	hprotocol "github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/txnbuild"
-	"github.com/threefoldtech/atomicswap/cmd/stellaratomicswap/stellar"
+	"github.com/threefoldtech/atomicswap/stellar"
 	"github.com/threefoldtech/atomicswap/timings"
 
 	"github.com/stellar/go/keypair"
