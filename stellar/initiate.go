@@ -18,9 +18,9 @@ type (
 	// InitiateOutput is the result of the Initiate call
 	InitiateOutput struct {
 		// Secret is the hex encoded secret
-		Secret string `json:"secret"`
+		Secret [secretSize]byte `json:"secret"`
 		// SecretHash is the hex encoded SHA256 hash of the secret
-		SecretHash string `json:"hash"`
+		SecretHash []byte `json:"hash"`
 		// InitiatorAddress is the address of the initiator keypair
 		InitiatorAddress string `json:"initiator"`
 		// HoldingAccountAddress is the address of the holding account
@@ -66,8 +66,8 @@ func Initiate(network string, initiatorKeyPair *keypair.Full, destination string
 	}
 
 	output := InitiateOutput{
-		Secret:                fmt.Sprintf("%x", secret),
-		SecretHash:            fmt.Sprintf("%x", secretHash),
+		Secret:                secret,
+		SecretHash:            secretHash,
 		InitiatorAddress:      fundingAccountAddress,
 		HoldingAccountAddress: holdingAccountAddress,
 		RefundTransaction:     serializedRefundTx,
