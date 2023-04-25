@@ -235,7 +235,7 @@ func run() (showUsage bool, err error) {
 			return true, fmt.Errorf("failed to decode amount: %v", err)
 		}
 
-		stellar.Initiate(targetNetwork, initiatorFullKeypair, args[2], args[3], asset, client)
+		cmd = &initiateCmd{InitiatorKeyPair: initiatorFullKeypair, cp2Addr: args[2], amount: args[3], asset: asset}
 	case "participate":
 		participatorKeypair, err := keypair.Parse(args[1])
 		if err != nil {
