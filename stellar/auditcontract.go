@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stellar/go/clients/horizonclient"
@@ -20,7 +19,7 @@ type (
 		RecipientAddress string `json:"recipientAddress"`
 		RefundAddress    string `json:"refundAddress"`
 		SecretHash       string `json:"secretHash"`
-		Locktime         string `json:"Locktime"`
+		Locktime         int64  `json:"Locktime"`
 	}
 )
 
@@ -127,9 +126,7 @@ func AuditContract(network string, refundTx txnbuild.Transaction, holdingAccount
 		RecipientAddress: recipientAddress,
 		RefundAddress:    refundAddress,
 		SecretHash:       fmt.Sprintf("%x", secretHash),
-		Locktime:         "",
+		Locktime:         lockTime,
 	}
-	t := time.Unix(lockTime, 0)
-	output.Locktime = fmt.Sprintf("%v", t.UTC())
 	return output, nil
 }
