@@ -149,13 +149,11 @@ github.com/karalabe/usb
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
 ## explicit
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kr/pretty v0.1.0
-## explicit
-# github.com/lib/pq v1.2.0
-## explicit
 # github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739
 ## explicit
 github.com/manucorporat/sse
+# github.com/mattn/go-isatty v0.0.18
+## explicit; go 1.15
 # github.com/mattn/go-runewidth v0.0.4
 ## explicit
 github.com/mattn/go-runewidth
@@ -265,7 +263,7 @@ golang.org/x/crypto/ssh/terminal
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
-# golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9
+# golang.org/x/sys v0.6.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
@@ -330,8 +328,6 @@ gopkg.in/natefinch/npipe.v2
 # gopkg.in/olebedev/go-duktape.v3 v3.0.0-20210326210528-650f7c854440
 ## explicit
 # gopkg.in/urfave/cli.v1 v1.20.0
-## explicit
-# gopkg.in/yaml.v2 v2.2.8
 ## explicit
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 ## explicit
