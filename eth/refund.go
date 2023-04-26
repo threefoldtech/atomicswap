@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func Refund(ctx context.Context, sct swapContractTransactor, contractTx *types.Transaction) (common.Hash, error) {
+func Refund(ctx context.Context, sct SwapContractTransactor, contractTx *types.Transaction) (common.Hash, error) {
 	params, err := unpackContractInputParams(sct.abi, contractTx)
 	if err != nil {
 		return common.Hash{}, err

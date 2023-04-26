@@ -13,7 +13,7 @@ import (
 )
 
 // ExtractSecret from a redeem call to the contract
-func ExtractSecret(ctx context.Context, sct swapContractTransactor, redemptionTx *types.Transaction, secretHash [sha256.Size]byte) ([]byte, error) {
+func ExtractSecret(ctx context.Context, sct SwapContractTransactor, redemptionTx *types.Transaction, secretHash [sha256.Size]byte) ([]byte, error) {
 	abi, err := abi.JSON(strings.NewReader(contract.ContractABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read (smart) contract ABI: %v", err)
