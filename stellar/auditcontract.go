@@ -19,7 +19,7 @@ type (
 		RecipientAddress string `json:"recipientAddress"`
 		RefundAddress    string `json:"refundAddress"`
 		SecretHash       string `json:"secretHash"`
-		Locktime         int64  `json:"Locktime"`
+		Locktime         int64  `json:"locktime"`
 	}
 )
 
