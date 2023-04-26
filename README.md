@@ -1,4 +1,4 @@
-# atomic swap tools [![Build Status](https://travis-ci.org/threefoldtech/atomicswap.svg?branch=master)](https://travis-ci.org/threefoldtech/atomicswap)
+# atomic swap tools
 
 Utilities to perform cross-chain atomic swaps.
 The swaps are based upon and compatible with [Decred atomic swaps](https://github.com/decred/atomicswap).
@@ -9,11 +9,6 @@ This repository adds tools and support for coins and wallets not supported by th
 Supported wallets:
 
 * Ethereum ([Ethereum](https://ethereum.org/))
-
-Find more support coins/wallets on:
-
-* [rivine/decredatomicswap](https://github.com/rivine/decredatomicswap): atomic swap (full-client) tools to swap with BTC and various altcoins. Binaries for the original Decred Atomic swap tools are also provided here.
-* [threefoldfoundation/tfchain](https://github.com/threefoldfoundation/tfchain): atomic swap (full-client) tool (`tfchainc`) to swap with TFT
 
 ## Atomic Swaps with thin clients
 
@@ -26,16 +21,6 @@ Currently only the Bitcoin Electrum wallet is supported:
 ## Atomic swaps without an external wallet process
 
 * [Stellar](https://stellar.org) based assets and Lumens: [StellarAtomicSwaps](cmd/stellaratomicswap/readme.md)
-
-## Roadmap
-
-* Add Stellar based non native asset support
-* Structure the thin-client code as a library both for Go and C
-* Add support for
-  * Litecoin ([Electrum-ltc](https://electrum-ltc.org))
-  * Ethereum (light (electrum?) client)
-
-And more coins later on.
 
 ## Repository Owners
 
