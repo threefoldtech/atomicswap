@@ -14,7 +14,7 @@ import (
 
 type (
 	RedeemOutput struct {
-		RedeemTxHash common.Hash `json:"redeem_transaction_hash"`
+		RedeemTxHash common.Hash `json:"redeemTransactionHash"`
 	}
 
 	params struct {

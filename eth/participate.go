@@ -10,8 +10,8 @@ import (
 
 type (
 	ParticipateOutput struct {
-		InitiatorAddress        common.Address `json:"initiator_address"`
-		ContractTransactionHash common.Hash    `json:"contract_transaction_hash"`
+		InitiatorAddress        common.Address `json:"initiatorAddress"`
+		ContractTransactionHash common.Hash    `json:"contractTransactionHash"`
 	}
 )
 

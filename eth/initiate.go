@@ -13,9 +13,9 @@ import (
 
 type InitiateOutput struct {
 	Secret                  [32]byte       `json:"secret"`
-	SecretHash              [32]byte       `json:"secret_hash"`
-	InitiatorAddress        common.Address `json:"initiator_address"`
-	ContractTransactionHash common.Hash    `json:"contract_transaction_hash"`
+	SecretHash              [32]byte       `json:"secretHash"`
+	InitiatorAddress        common.Address `json:"initiatorAddress"`
+	ContractTransactionHash common.Hash    `json:"contractTransactionHash"`
 }
 
 // Initiate an atomic swap
