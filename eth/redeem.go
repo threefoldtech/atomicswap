@@ -25,7 +25,7 @@ type (
 )
 
 // Redeem an atomic swap
-func Redeem(ctx context.Context, sct swapContractTransactor, contractTx *types.Transaction, secret [32]byte) (RedeemOutput, error) {
+func Redeem(ctx context.Context, sct SwapContractTransactor, contractTx *types.Transaction, secret [32]byte) (RedeemOutput, error) {
 	params, err := unpackContractInputParams(sct.abi, contractTx)
 	if err != nil {
 		return RedeemOutput{}, err

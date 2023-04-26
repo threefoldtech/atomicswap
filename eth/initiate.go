@@ -19,7 +19,7 @@ type InitiateOutput struct {
 }
 
 // Initiate an atomic swap
-func Initiate(ctx context.Context, sct swapContractTransactor, cp2Addr common.Address, amount *big.Int) (InitiateOutput, error) {
+func Initiate(ctx context.Context, sct SwapContractTransactor, cp2Addr common.Address, amount *big.Int) (InitiateOutput, error) {
 	secret, secretHash := generateSecretHashPair()
 	tx, err := sct.initiateTx(ctx, amount, secretHash, cp2Addr)
 	if err != nil {

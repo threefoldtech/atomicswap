@@ -7,22 +7,25 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/threefoldtech/atomicswap/cmd/ethatomicswap/contract"
 )
 
 type (
-	// swapContractTransactor allows the creation of transactions for the different
+	// SwapContractTransactor allows the creation of transactions for the different
 	// atomic swap actions
-	swapContractTransactor struct {
+	SwapContractTransactor struct {
 		abi          abi.ABI
 		signer       bind.SignerFn
 		client       *EthClient
@@ -48,7 +51,7 @@ const (
 	maxGasLimit = 210000
 )
 
-func (sct *swapContractTransactor) initiateTx(ctx context.Context, amount *big.Int, secretHash [sha256.Size]byte, participant common.Address) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) initiateTx(ctx context.Context, amount *big.Int, secretHash [sha256.Size]byte, participant common.Address) (*swapTransaction, error) {
 	// validate tx does not exist yet,
 	// as to provide more meaningful error messages
 	switch _, err := sct.getSwapContract(ctx, secretHash); err {
@@ -72,7 +75,7 @@ func (sct *swapContractTransactor) initiateTx(ctx context.Context, amount *big.I
 	)
 }
 
-func (sct *swapContractTransactor) participateTx(ctx context.Context, amount *big.Int, secretHash [sha256.Size]byte, initiator common.Address) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) participateTx(ctx context.Context, amount *big.Int, secretHash [sha256.Size]byte, initiator common.Address) (*swapTransaction, error) {
 	// validate tx does not exist yet,
 	// as to provide more meaningful error messages
 	switch _, err := sct.getSwapContract(ctx, secretHash); err {
@@ -95,7 +98,7 @@ func (sct *swapContractTransactor) participateTx(ctx context.Context, amount *bi
 	)
 }
 
-func (sct *swapContractTransactor) redeemTx(ctx context.Context, secretHash, secret [sha256.Size]byte) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) redeemTx(ctx context.Context, secretHash, secret [sha256.Size]byte) (*swapTransaction, error) {
 	// validate swap contract,
 	// as to provide more meaningful errors
 	sc, err := sct.getSwapContract(ctx, secretHash)
@@ -134,7 +137,7 @@ func (sct *swapContractTransactor) redeemTx(ctx context.Context, secretHash, sec
 	)
 }
 
-func (sct *swapContractTransactor) refundTx(ctx context.Context, secretHash [sha256.Size]byte) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) refundTx(ctx context.Context, secretHash [sha256.Size]byte) (*swapTransaction, error) {
 	// validate swap contract,
 	// as to provide more meaningful errors
 	sc, err := sct.getSwapContract(ctx, secretHash)
@@ -179,11 +182,11 @@ func bigIntPtrToUint64(i *big.Int) int64 {
 	return i.Int64()
 }
 
-func (sct *swapContractTransactor) deployTx(ctx context.Context) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) deployTx(ctx context.Context) (*swapTransaction, error) {
 	return sct.newTransactionWithInput(ctx, nil, false, common.FromHex(contract.ContractBin))
 }
 
-func (sct *swapContractTransactor) maxGasCost(ctx context.Context) (*big.Int, error) {
+func (sct *SwapContractTransactor) maxGasCost(ctx context.Context) (*big.Int, error) {
 	gasPrice, err := sct.client.SuggestGasPrice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to suggest gas price: %v", err)
@@ -222,7 +225,7 @@ var (
 // getSwapContract is a free contract call,
 // which allows us to retrieve an atomic swap contract from a deployed AtomicSwap smart contract,
 // using the secret hash used in that atomic swap contract as this contract's identifier.
-func (sct *swapContractTransactor) getSwapContract(ctx context.Context, secretHash [32]byte) (*struct {
+func (sct *SwapContractTransactor) getSwapContract(ctx context.Context, secretHash [32]byte) (*struct {
 	InitTimestamp *big.Int
 	RefundTime    *big.Int
 	SecretHash    [32]byte
@@ -254,7 +257,7 @@ func (sct *swapContractTransactor) getSwapContract(ctx context.Context, secretHa
 	return &sc, nil
 }
 
-func (sct *swapContractTransactor) newTransaction(ctx context.Context, amount *big.Int, name string, params ...interface{}) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) newTransaction(ctx context.Context, amount *big.Int, name string, params ...interface{}) (*swapTransaction, error) {
 	// pack up the parameters and contract name
 	input, err := sct.abi.Pack(name, params...)
 	if err != nil {
@@ -263,7 +266,7 @@ func (sct *swapContractTransactor) newTransaction(ctx context.Context, amount *b
 	return sct.newTransactionWithInput(ctx, amount, true, input)
 }
 
-func (sct *swapContractTransactor) newTransactionWithInput(ctx context.Context, amount *big.Int, contractCall bool, input []byte) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) newTransactionWithInput(ctx context.Context, amount *big.Int, contractCall bool, input []byte) (*swapTransaction, error) {
 	// define the TransactOpts for binding
 	opts, err := sct.calcBaseOpts(ctx, amount)
 	if err != nil {
@@ -344,7 +347,7 @@ func (sct *swapContractTransactor) newTransactionWithInput(ctx context.Context, 
 	}, nil
 }
 
-func (sct *swapContractTransactor) calcBaseOpts(ctx context.Context, amount *big.Int) (*bind.TransactOpts, error) {
+func (sct *SwapContractTransactor) calcBaseOpts(ctx context.Context, amount *big.Int) (*bind.TransactOpts, error) {
 	nonce, err := sct.client.PendingNonceAt(ctx, sct.fromAddr)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -367,7 +370,7 @@ func (sct *swapContractTransactor) calcBaseOpts(ctx context.Context, amount *big
 	}, nil
 }
 
-func (sct *swapContractTransactor) calcGasLimit(ctx context.Context, amount, gasPrice *big.Int, contractCall bool, input []byte) (uint64, error) {
+func (sct *SwapContractTransactor) calcGasLimit(ctx context.Context, amount, gasPrice *big.Int, contractCall bool, input []byte) (uint64, error) {
 	if contractCall {
 		code, err := sct.client.PendingCodeAt(ctx, sct.contractAddr)
 		if err != nil {
@@ -425,4 +428,55 @@ var (
 func sha256Hash(x []byte) [sha256.Size]byte {
 	h := sha256.Sum256(x)
 	return h
+}
+
+// newSwapContractTransactor creates a new swapContract instance,
+// see swapContractTransactor for more information
+func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr common.Address, key *keystore.Key) (SwapContractTransactor, error) {
+	parsed, err := abi.JSON(strings.NewReader(contract.ContractABI))
+	if err != nil {
+		return SwapContractTransactor{}, fmt.Errorf("failed to read (smart) contract ABI: %v", err)
+	}
+	// sign using given key
+	signer, fromAddr, err := newSigner(key)
+	if err != nil {
+		return SwapContractTransactor{}, fmt.Errorf("failed to create tx signer: %v", err)
+	}
+	return SwapContractTransactor{
+		abi:          parsed,
+		signer:       signer,
+		client:       c,
+		fromAddr:     fromAddr,
+		contractAddr: contractAddr,
+	}, nil
+}
+
+// newSigner creates a signer func using the flag-passed
+// private credentials of the sender
+func newSigner(key *keystore.Key) (bind.SignerFn, common.Address, error) {
+	// json, err := ioutil.ReadFile(path)
+	// if err != nil {
+	// 	return nil, common.Address{}, fmt.Errorf("failed to read encrypted account/key file (%s) content: %v", path, err)
+	// }
+	// passphrase, err := speakeasy.Ask("Account passphrase: ")
+	// if err != nil {
+	// 	return nil, common.Address{}, fmt.Errorf("failed to get passphrase from STDIN: %v", err)
+	// }
+	// key, err := keystore.DecryptKey(json, passphrase)
+	// if err != nil {
+	// 	return nil, common.Address{}, fmt.Errorf("failed to decrypt (JSON) account/key file (%s): %v", path, err)
+	// }
+	privKey := key.PrivateKey
+	keyAddr := crypto.PubkeyToAddress(privKey.PublicKey)
+	return func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+		if address != keyAddr {
+			return nil, errors.New("not authorized to sign this account")
+		}
+		signature, err := crypto.Sign(tx.Hash().Bytes(), privKey)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: is homesteadsigner sufficient?
+		return tx.WithSignature(types.HomesteadSigner{}, signature)
+	}, keyAddr, nil
 }

@@ -22,7 +22,7 @@ type (
 	}
 )
 
-func AuditContract(ctx context.Context, sct swapContractTransactor, contractTx *types.Transaction) (AuditContractOutput, error) {
+func AuditContract(ctx context.Context, sct SwapContractTransactor, contractTx *types.Transaction) (AuditContractOutput, error) {
 	// unpack input params from contract tx
 	params, err := unpackContractInputParams(sct.abi, contractTx)
 	if err != nil {
