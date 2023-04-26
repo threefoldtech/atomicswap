@@ -12,11 +12,13 @@ import (
 )
 
 type InitiateOutput struct {
-	Secret           [32]byte       `json:"secret"`
-	SecretHash       [32]byte       `json:"secret_hash"`
-	InitiatorAddress common.Address `json:"initiator_address"`
+	Secret                  [32]byte       `json:"secret"`
+	SecretHash              [32]byte       `json:"secret_hash"`
+	InitiatorAddress        common.Address `json:"initiator_address"`
+	ContractTransactionHash common.Hash    `json:"contract_transaction_hash"`
 }
 
+// Initiate an atomic swap
 func Initiate(ctx context.Context, sct swapContractTransactor, cp2Addr common.Address, amount *big.Int) (InitiateOutput, error) {
 	secret, secretHash := generateSecretHashPair()
 	tx, err := sct.initiateTx(ctx, amount, secretHash, cp2Addr)
@@ -37,9 +39,10 @@ func Initiate(ctx context.Context, sct swapContractTransactor, cp2Addr common.Ad
 	fmt.Printf("Published contract transaction (%x)\n", tx.Hash())
 
 	return InitiateOutput{
-		Secret:           secret,
-		SecretHash:       secretHash,
-		InitiatorAddress: sct.fromAddr,
+		Secret:                  secret,
+		SecretHash:              secretHash,
+		InitiatorAddress:        sct.fromAddr,
+		ContractTransactionHash: tx.Hash(),
 	}, nil
 }
 
