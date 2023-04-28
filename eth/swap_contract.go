@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -13,7 +14,6 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -432,7 +432,7 @@ func sha256Hash(x []byte) [sha256.Size]byte {
 
 // newSwapContractTransactor creates a new swapContract instance,
 // see swapContractTransactor for more information
-func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr common.Address, key *keystore.Key) (SwapContractTransactor, error) {
+func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr common.Address, key *ecdsa.PrivateKey) (SwapContractTransactor, error) {
 	parsed, err := abi.JSON(strings.NewReader(contract.ContractABI))
 	if err != nil {
 		return SwapContractTransactor{}, fmt.Errorf("failed to read (smart) contract ABI: %v", err)
@@ -453,7 +453,7 @@ func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr c
 
 // newSigner creates a signer func using the flag-passed
 // private credentials of the sender
-func newSigner(key *keystore.Key) (bind.SignerFn, common.Address, error) {
+func newSigner(privKey *ecdsa.PrivateKey) (bind.SignerFn, common.Address, error) {
 	// json, err := ioutil.ReadFile(path)
 	// if err != nil {
 	// 	return nil, common.Address{}, fmt.Errorf("failed to read encrypted account/key file (%s) content: %v", path, err)
@@ -466,7 +466,6 @@ func newSigner(key *keystore.Key) (bind.SignerFn, common.Address, error) {
 	// if err != nil {
 	// 	return nil, common.Address{}, fmt.Errorf("failed to decrypt (JSON) account/key file (%s): %v", path, err)
 	// }
-	privKey := key.PrivateKey
 	keyAddr := crypto.PubkeyToAddress(privKey.PublicKey)
 	return func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
 		if address != keyAddr {
