@@ -8,14 +8,15 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type InitiateOutput struct {
-	Secret                  [32]byte       `json:"secret"`
-	SecretHash              [32]byte       `json:"secretHash"`
-	InitiatorAddress        common.Address `json:"initiatorAddress"`
-	ContractTransactionHash common.Hash    `json:"contractTransactionHash"`
+	Secret              [32]byte          `json:"secret"`
+	SecretHash          [32]byte          `json:"secretHash"`
+	InitiatorAddress    common.Address    `json:"initiatorAddress"`
+	ContractTransaction types.Transaction `json:"contractTransaction"`
 }
 
 // Initiate an atomic swap
@@ -39,10 +40,10 @@ func Initiate(ctx context.Context, sct SwapContractTransactor, cp2Addr common.Ad
 	fmt.Printf("Published contract transaction (%x)\n", tx.Hash())
 
 	return InitiateOutput{
-		Secret:                  secret,
-		SecretHash:              secretHash,
-		InitiatorAddress:        sct.fromAddr,
-		ContractTransactionHash: tx.Hash(),
+		Secret:              secret,
+		SecretHash:          secretHash,
+		InitiatorAddress:    sct.fromAddr,
+		ContractTransaction: *tx.Transaction,
 	}, nil
 }
 
