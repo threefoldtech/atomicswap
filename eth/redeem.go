@@ -25,12 +25,8 @@ type (
 )
 
 // Redeem an atomic swap
-func Redeem(ctx context.Context, sct SwapContractTransactor, contractTx *types.Transaction, secret [32]byte) (RedeemOutput, error) {
-	params, err := unpackContractInputParams(sct.abi, contractTx)
-	if err != nil {
-		return RedeemOutput{}, err
-	}
-	tx, err := sct.redeemTx(ctx, params.SecretHash, secret)
+func Redeem(ctx context.Context, sct SwapContractTransactor, secretHash [sha256.Size]byte, secret [32]byte) (RedeemOutput, error) {
+	tx, err := sct.redeemTx(ctx, secretHash, secret)
 	if err != nil {
 		return RedeemOutput{}, fmt.Errorf("failed to create redeem TX: %v", err)
 	}
