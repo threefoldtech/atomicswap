@@ -19,18 +19,18 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/threefoldtech/atomicswap/cmd/ethatomicswap/contract"
+	"github.com/threefoldtech/atomicswap/eth/contract"
 )
 
 type (
 	// SwapContractTransactor allows the creation of transactions for the different
 	// atomic swap actions
 	SwapContractTransactor struct {
-		abi          abi.ABI
+		Abi          abi.ABI
 		signer       bind.SignerFn
-		client       *EthClient
-		fromAddr     common.Address
-		contractAddr common.Address
+		Client       *EthClient
+		FromAddr     common.Address
+		ContractAddr common.Address
 		autoAccount  bool // defines if an account is automatically selected
 
 		_contract *contract.Contract // created only once
@@ -113,12 +113,12 @@ func (sct *SwapContractTransactor) redeemTx(ctx context.Context, secretHash, sec
 	}
 	switch sc.Kind {
 	case swapKindInitiator:
-		if sc.Participant != sct.fromAddr {
-			return nil, fmt.Errorf("only the participant can redeem: unexpected address: %x", sct.fromAddr)
+		if sc.Participant != sct.FromAddr {
+			return nil, fmt.Errorf("only the participant can redeem: unexpected address: %x", sct.FromAddr)
 		}
 	case swapKindParticipant:
-		if sc.Initiator != sct.fromAddr {
-			return nil, fmt.Errorf("only the initiator can redeem: unexpected address: %x", sct.fromAddr)
+		if sc.Initiator != sct.FromAddr {
+			return nil, fmt.Errorf("only the initiator can redeem: unexpected address: %x", sct.FromAddr)
 		}
 	default:
 		return nil, fmt.Errorf("invalid atomic swap contract kind: %d", sc.Kind)
@@ -149,12 +149,12 @@ func (sct *SwapContractTransactor) refundTx(ctx context.Context, secretHash [sha
 	}
 	switch sc.Kind {
 	case swapKindInitiator:
-		if sc.Initiator != sct.fromAddr {
-			return nil, fmt.Errorf("only the participant can refund: unexpected address: %x", sct.fromAddr)
+		if sc.Initiator != sct.FromAddr {
+			return nil, fmt.Errorf("only the participant can refund: unexpected address: %x", sct.FromAddr)
 		}
 	case swapKindParticipant:
-		if sc.Participant != sct.fromAddr {
-			return nil, fmt.Errorf("only the initiator can refund: unexpected address: %x", sct.fromAddr)
+		if sc.Participant != sct.FromAddr {
+			return nil, fmt.Errorf("only the initiator can refund: unexpected address: %x", sct.FromAddr)
 		}
 	default:
 		return nil, fmt.Errorf("invalid atomic swap contract kind: %d", sc.Kind)
@@ -182,12 +182,12 @@ func bigIntPtrToUint64(i *big.Int) int64 {
 	return i.Int64()
 }
 
-func (sct *SwapContractTransactor) deployTx(ctx context.Context) (*swapTransaction, error) {
+func (sct *SwapContractTransactor) DeployTx(ctx context.Context) (*swapTransaction, error) {
 	return sct.newTransactionWithInput(ctx, nil, false, common.FromHex(contract.ContractBin))
 }
 
 func (sct *SwapContractTransactor) maxGasCost(ctx context.Context) (*big.Int, error) {
-	gasPrice, err := sct.client.SuggestGasPrice(ctx)
+	gasPrice, err := sct.Client.SuggestGasPrice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to suggest gas price: %v", err)
 	}
@@ -238,18 +238,18 @@ func (sct *SwapContractTransactor) getSwapContract(ctx context.Context, secretHa
 }, error) {
 	if sct._contract == nil {
 		var err error
-		sct._contract, err = contract.NewContract(sct.contractAddr, sct.client.Client)
+		sct._contract, err = contract.NewContract(sct.ContractAddr, sct.Client.Client)
 		if err != nil {
-			return nil, fmt.Errorf("failed to bind smart contract (at %x): %v", sct.contractAddr, err)
+			return nil, fmt.Errorf("failed to bind smart contract (at %x): %v", sct.ContractAddr, err)
 		}
 	}
 	sc, err := sct._contract.Swaps(&bind.CallOpts{
 		Pending: false,
-		From:    sct.fromAddr,
+		From:    sct.FromAddr,
 		Context: ctx,
 	}, secretHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get swap contract from smart contract (at %x): %v", sct.contractAddr, err)
+		return nil, fmt.Errorf("failed to get swap contract from smart contract (at %x): %v", sct.ContractAddr, err)
 	}
 	if sc.State == swapStateEmpty {
 		return nil, errNotExists
@@ -259,7 +259,7 @@ func (sct *SwapContractTransactor) getSwapContract(ctx context.Context, secretHa
 
 func (sct *SwapContractTransactor) newTransaction(ctx context.Context, amount *big.Int, name string, params ...interface{}) (*swapTransaction, error) {
 	// pack up the parameters and contract name
-	input, err := sct.abi.Pack(name, params...)
+	input, err := sct.Abi.Pack(name, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack input")
 	}
@@ -282,14 +282,14 @@ func (sct *SwapContractTransactor) newTransactionWithInput(ctx context.Context, 
 	if opts.Signer == nil {
 		var toAddr *common.Address
 		if contractCall {
-			toAddr = &sct.contractAddr
+			toAddr = &sct.ContractAddr
 		}
 		// sign transaction using the daemon
 		var result struct {
 			Raw string            `json:"raw"`
 			Tx  types.Transaction `json:"tx"`
 		}
-		err = sct.client.rpcClient.CallContext(ctx, &result, "eth_signTransaction", struct {
+		err = sct.Client.rpcClient.CallContext(ctx, &result, "eth_signTransaction", struct {
 			From     common.Address  `json:"from"`
 			To       *common.Address `json:"to"`
 			Gas      hexutil.Uint64  `json:"gas"`
@@ -320,7 +320,7 @@ func (sct *SwapContractTransactor) newTransactionWithInput(ctx context.Context, 
 		if contractCall {
 			rawTx = types.NewTransaction(
 				opts.Nonce.Uint64(),
-				sct.contractAddr,
+				sct.ContractAddr,
 				opts.Value,
 				opts.GasLimit,
 				opts.GasPrice,
@@ -343,18 +343,18 @@ func (sct *SwapContractTransactor) newTransactionWithInput(ctx context.Context, 
 	}
 	return &swapTransaction{
 		Transaction: signedTx,
-		client:      sct.client,
+		client:      sct.Client,
 	}, nil
 }
 
 func (sct *SwapContractTransactor) calcBaseOpts(ctx context.Context, amount *big.Int) (*bind.TransactOpts, error) {
-	nonce, err := sct.client.PendingNonceAt(ctx, sct.fromAddr)
+	nonce, err := sct.Client.PendingNonceAt(ctx, sct.FromAddr)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to retrieve account (%x) nonce: %v",
-			sct.fromAddr, err)
+			sct.FromAddr, err)
 	}
-	gasPrice, err := sct.client.SuggestGasPrice(ctx)
+	gasPrice, err := sct.Client.SuggestGasPrice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to suggest gas price: %v", err)
 	}
@@ -362,7 +362,7 @@ func (sct *SwapContractTransactor) calcBaseOpts(ctx context.Context, amount *big
 		amount = new(big.Int)
 	}
 	return &bind.TransactOpts{
-		From:     sct.fromAddr,
+		From:     sct.FromAddr,
 		Nonce:    new(big.Int).SetUint64(nonce),
 		Signer:   sct.signer,
 		Value:    amount,
@@ -372,7 +372,7 @@ func (sct *SwapContractTransactor) calcBaseOpts(ctx context.Context, amount *big
 
 func (sct *SwapContractTransactor) calcGasLimit(ctx context.Context, amount, gasPrice *big.Int, contractCall bool, input []byte) (uint64, error) {
 	if contractCall {
-		code, err := sct.client.PendingCodeAt(ctx, sct.contractAddr)
+		code, err := sct.Client.PendingCodeAt(ctx, sct.ContractAddr)
 		if err != nil {
 			return 0, fmt.Errorf("failed to estimate gas needed: %v", err)
 		} else if len(code) == 0 {
@@ -381,14 +381,14 @@ func (sct *SwapContractTransactor) calcGasLimit(ctx context.Context, amount, gas
 	}
 	// If the contract surely has code (or code is not needed), estimate the transaction
 	msg := ethereum.CallMsg{
-		From:  sct.fromAddr,
+		From:  sct.FromAddr,
 		Value: amount,
 		Data:  input,
 	}
 	if contractCall {
-		msg.To = &sct.contractAddr
+		msg.To = &sct.ContractAddr
 	}
-	gasLimit, err := sct.client.EstimateGas(ctx, msg)
+	gasLimit, err := sct.Client.EstimateGas(ctx, msg)
 	if err != nil {
 		return 0, fmt.Errorf("failed to estimate gas needed: %v", err)
 	}
@@ -438,16 +438,20 @@ func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr c
 		return SwapContractTransactor{}, fmt.Errorf("failed to read (smart) contract ABI: %v", err)
 	}
 	// sign using given key
-	signer, fromAddr, err := newSigner(key)
-	if err != nil {
-		return SwapContractTransactor{}, fmt.Errorf("failed to create tx signer: %v", err)
+	var signer bind.SignerFn
+	var fromAddr common.Address
+	if key != nil {
+		signer, fromAddr, err = newSigner(key)
+		if err != nil {
+			return SwapContractTransactor{}, fmt.Errorf("failed to create tx signer: %v", err)
+		}
 	}
 	return SwapContractTransactor{
-		abi:          parsed,
+		Abi:          parsed,
 		signer:       signer,
-		client:       c,
-		fromAddr:     fromAddr,
-		contractAddr: contractAddr,
+		Client:       c,
+		FromAddr:     fromAddr,
+		ContractAddr: contractAddr,
 	}, nil
 }
 

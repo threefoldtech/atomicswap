@@ -13,8 +13,8 @@ type EthClient struct {
 }
 
 // DialClient dials a new rpc client at the given url
-func DialClient(url string) (*EthClient, error) {
-	c, err := rpc.DialContext(context.Background(), url)
+func DialClient(ctx context.Context, url string) (*EthClient, error) {
+	c, err := rpc.DialContext(ctx, url)
 	if err != nil {
 		return nil, err
 	}

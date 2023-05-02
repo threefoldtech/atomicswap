@@ -28,7 +28,7 @@ func Participate(ctx context.Context, sct SwapContractTransactor, cp1Addr common
 	}
 
 	return ParticipateOutput{
-		InitiatorAddress:        sct.fromAddr,
+		InitiatorAddress:        sct.FromAddr,
 		ContractTransactionHash: tx.Hash(),
 	}, nil
 }

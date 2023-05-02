@@ -8,10 +8,10 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/bgentry/speakeasy"
+	"github.com/pkg/errors"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -29,13 +30,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/threefoldtech/atomicswap/cmd/ethatomicswap/contract"
+	"github.com/threefoldtech/atomicswap/eth"
+	"github.com/threefoldtech/atomicswap/eth/contract"
 )
 
 var (
@@ -102,7 +103,7 @@ func init() {
 }
 
 type command interface {
-	runCommand(swapContractTransactor) error
+	runCommand(eth.SwapContractTransactor) error
 }
 
 // offline commands don't require wallet RPC.
@@ -385,7 +386,8 @@ func run() (err error, showUsage bool) {
 		return cmd.runOfflineCommand(), false
 	}
 
-	client, err := dialClient()
+	ctx := context.Background()
+	client, err := eth.DialClient(ctx, *connectFlag)
 	if err != nil {
 		return fmt.Errorf("rpc connect: %v", err), false
 	}
@@ -396,13 +398,34 @@ func run() (err error, showUsage bool) {
 	if err != nil {
 		return fmt.Errorf("failed to get contract address: %v", err), false
 	}
-	sct, err := newSwapContractTransactor(client, contractAddr)
+	key, err := loadAccount(*accountFlag)
+	if err != nil {
+		return errors.Wrap(err, "could not load account key"), false
+	}
+	sct, err := eth.NewSwapContractTransactor(ctx, client, contractAddr, key)
 	if err != nil {
 		return err, false
 	}
 
 	err = cmd.runCommand(sct)
 	return err, false
+}
+
+func loadAccount(path string) (*ecdsa.PrivateKey, error) {
+
+	json, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read encrypted account/key file (%s) content: %v", path, err)
+	}
+	passphrase, err := speakeasy.Ask("Account passphrase: ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get passphrase from STDIN: %v", err)
+	}
+	key, err := keystore.DecryptKey(json, passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt (JSON) account/key file (%s): %v", path, err)
+	}
+	return key.PrivateKey, nil
 }
 
 func getDeployedContractAddress() (common.Address, error) {
@@ -502,49 +525,41 @@ func unpackContractInputParams(abi abi.ABI, tx *types.Transaction) (params struc
 		return
 	}
 
-	// unpack and return the params
-	paramSlice := []interface{}{ // unpack as slice, so we don't enforce field names
-		&params.LockDuration,
-		&params.SecretHash,
-		&params.ToAddress,
-	}
-	err = method.Inputs.Unpack(&paramSlice, txData[4:])
+	args, err := method.Inputs.Unpack(txData[4:])
 	if err != nil {
 		err = fmt.Errorf("failed to unpack method's input params: %v", err)
 	}
+	if len(args) != 3 {
+		err = errors.New("unexpected amount of transaction params")
+		return
+	}
+
+	params.LockDuration = args[0].(*big.Int)
+	params.SecretHash = args[1].([sha256.Size]byte)
+	params.ToAddress = args[2].(common.Address)
+
 	return
 }
 
-func (cmd *initiateCmd) runCommand(sct swapContractTransactor) error {
-	secret, secretHash := generateSecretHashPair()
-	tx, err := sct.initiateTx(cmd.amount, secretHash, cmd.cp2Addr)
+func (cmd *initiateCmd) runCommand(sct eth.SwapContractTransactor) error {
+	output, err := eth.Initiate(context.Background(), sct, cmd.cp2Addr, cmd.amount)
 	if err != nil {
-		return fmt.Errorf("failed to create initiate TX: %v", err)
+		return errors.Wrap(err, "failed to create initiate TX")
 	}
 
 	fmt.Printf("Amount: %s Wei (%s ETH)\n\n",
 		cmd.amount.String(), formatWeiAsEthString(cmd.amount))
 
-	fmt.Printf("Secret:      %x\n", secret)
-	fmt.Printf("Secret hash: %x\n\n", secretHash)
+	fmt.Printf("Author's refund address: %x\n\n", sct.FromAddr)
 
-	if sct.autoAccount {
-		fmt.Printf("Author's refund address: %x\n\n", sct.fromAddr)
-	}
-
-	initiateTxCost := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
-	fmt.Printf("Contract fee: %s ETH\n", formatWeiAsEthString(initiateTxCost))
-	refundTxCost, err := sct.maxGasCost()
-	if err != nil {
-		return fmt.Errorf("failed to estimate max gas cost for refund tx: %v", err)
-	}
-	fmt.Printf("Refund fee:   %s ETH (max)\n\n", formatWeiAsEthString(refundTxCost))
+	fmt.Printf("Secret:      %x\n", output.Secret)
+	fmt.Printf("Secret hash: %x\n\n", output.SecretHash)
 
 	fmt.Printf("Chain ID:         %s\n", chainConfig.ChainID.String())
-	fmt.Printf("Contract Address: %x\n", sct.contractAddr)
+	fmt.Printf("Contract Address: %x\n", sct.ContractAddr)
 
-	fmt.Printf("Contract transaction (%x):\n", tx.Hash())
-	txBytes, err := rlp.EncodeToBytes(tx)
+	fmt.Printf("Contract transaction (%x):\n", output.ContractTransaction.Hash())
+	txBytes, err := rlp.EncodeToBytes(output.ContractTransaction)
 	if err != nil {
 		return fmt.Errorf("failed to encode contract TX: %v", err)
 	}
@@ -555,131 +570,60 @@ func (cmd *initiateCmd) runCommand(sct swapContractTransactor) error {
 		return err
 	}
 
-	err = tx.Send()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Published contract transaction (%x)\n", tx.Hash())
 	return nil
 }
 
-func (cmd *participateCmd) runCommand(sct swapContractTransactor) error {
-	tx, err := sct.participateTx(cmd.amount, cmd.secretHash, cmd.cp1Addr)
+func (cmd *participateCmd) runCommand(sct eth.SwapContractTransactor) error {
+	output, err := eth.Participate(context.Background(), sct, cmd.cp1Addr, cmd.amount, cmd.secretHash)
 	if err != nil {
-		return fmt.Errorf("failed to create participate TX: %v", err)
+		return errors.Wrap(err, "failed to participate in atomic swap")
 	}
 
 	fmt.Printf("Amount: %s Wei (%s ETH)\n\n",
 		cmd.amount.String(), formatWeiAsEthString(cmd.amount))
 
-	if sct.autoAccount {
-		fmt.Printf("Author's refund address: %x\n\n", sct.fromAddr)
-	}
-
-	participateTxCost := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
-	fmt.Printf("Contract fee: %s ETH\n", formatWeiAsEthString(participateTxCost))
-	refundTxCost, err := sct.maxGasCost()
-	if err != nil {
-		return fmt.Errorf("failed to estimate max gas cost for refund tx: %v", err)
-	}
-	fmt.Printf("Refund fee:   %s ETH (max)\n\n", formatWeiAsEthString(refundTxCost))
+	fmt.Printf("Author's refund address: %x\n\n", sct.FromAddr)
 
 	fmt.Printf("Chain ID:         %s\n", chainConfig.ChainID.String())
-	fmt.Printf("Contract Address: %x\n", sct.contractAddr)
+	fmt.Printf("Contract Address: %x\n", sct.ContractAddr)
 
-	fmt.Printf("Contract transaction (%x):\n", tx.Hash())
-	txBytes, err := rlp.EncodeToBytes(tx)
-	if err != nil {
-		return fmt.Errorf("failed to encode contract TX: %v", err)
-	}
-	fmt.Printf("%x\n\n", txBytes)
+	fmt.Printf("Contract transaction (%x):\n", output.ContractTransactionHash)
 
-	publish, err := promptPublishTx("contract")
-	if err != nil || !publish {
-		return err
-	}
-
-	err = tx.Send()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Published contract transaction (%x)\n", tx.Hash())
 	return nil
 }
 
-func (cmd *redeemCmd) runCommand(sct swapContractTransactor) error {
-	params, err := unpackContractInputParams(sct.abi, cmd.contractTx)
+func (cmd *redeemCmd) runCommand(sct eth.SwapContractTransactor) error {
+	params, err := unpackContractInputParams(sct.Abi, cmd.contractTx)
 	if err != nil {
 		return err
 	}
-	tx, err := sct.redeemTx(params.SecretHash, cmd.secret)
+	output, err := eth.Redeem(context.Background(), sct, params.SecretHash, cmd.secret)
 	if err != nil {
 		return fmt.Errorf("failed to create redeem TX: %v", err)
 	}
 
-	redeemTxCost := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
-	fmt.Printf("Redeem fee: %s ETH\n\n", formatWeiAsEthString(redeemTxCost))
-
 	fmt.Printf("Chain ID:         %s\n", chainConfig.ChainID.String())
-	fmt.Printf("Contract Address: %x\n", sct.contractAddr)
+	fmt.Printf("Contract Address: %x\n", sct.ContractAddr)
 
-	fmt.Printf("Redeem transaction (%x):\n", tx.Hash())
-	txBytes, err := rlp.EncodeToBytes(tx)
-	if err != nil {
-		return fmt.Errorf("failed to encode redeem TX: %v", err)
-	}
-	fmt.Printf("%x\n\n", txBytes)
+	fmt.Printf("Redeem transaction (%x):\n", output.RedeemTxHash)
 
-	publish, err := promptPublishTx("redeem")
-	if err != nil || !publish {
-		return err
-	}
-
-	err = tx.Send()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Published redeem transaction (%x)\n", tx.Hash())
 	return nil
 }
 
-func (cmd *refundCmd) runCommand(sct swapContractTransactor) error {
-	params, err := unpackContractInputParams(sct.abi, cmd.contractTx)
-	if err != nil {
-		return err
-	}
-	tx, err := sct.refundTx(params.SecretHash)
+func (cmd *refundCmd) runCommand(sct eth.SwapContractTransactor) error {
+	output, err := eth.Refund(context.Background(), sct, cmd.contractTx)
 	if err != nil {
 		return fmt.Errorf("failed to create refund TX: %v", err)
 	}
 
-	refundTxCost := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
-	fmt.Printf("Refund fee: %s ETH\n\n", formatWeiAsEthString(refundTxCost))
-
 	fmt.Printf("Chain ID:         %s\n", chainConfig.ChainID.String())
-	fmt.Printf("Contract Address: %x\n", sct.contractAddr)
+	fmt.Printf("Contract Address: %x\n", sct.ContractAddr)
 
-	fmt.Printf("Refund transaction (%x):\n", tx.Hash())
-	txBytes, err := rlp.EncodeToBytes(tx)
-	if err != nil {
-		return fmt.Errorf("failed to encode refund TX: %v", err)
-	}
-	fmt.Printf("%x\n\n", txBytes)
-
-	publish, err := promptPublishTx("refund")
-	if err != nil || !publish {
-		return err
-	}
-
-	err = tx.Send()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Published refund transaction (%x)\n", tx.Hash())
+	fmt.Printf("Refund transaction (%x):\n", output)
 	return nil
 }
 
-func (cmd *extractSecretCmd) runCommand(swapContractTransactor) error {
+func (cmd *extractSecretCmd) runCommand(eth.SwapContractTransactor) error {
 	return cmd.runOfflineCommand()
 }
 
@@ -707,10 +651,17 @@ func (cmd *extractSecretCmd) runOfflineCommand() error {
 	}{}
 
 	// unpack the params
-	err = method.Inputs.Unpack(&params, txData[4:])
+	args, err := method.Inputs.Unpack(txData[4:])
 	if err != nil {
 		return fmt.Errorf("failed to unpack method's input params: %v", err)
 	}
+
+	if len(args) > 2 {
+		return errors.New("unexpected arguments count")
+	}
+
+	params.Secret = args[0].([sha256.Size]byte)
+	params.SecretHash = args[1].([sha256.Size]byte)
 
 	// ensure secret hash is the same as the given one
 	if cmd.secretHash != params.SecretHash {
@@ -726,52 +677,23 @@ func (cmd *extractSecretCmd) runOfflineCommand() error {
 	return nil
 }
 
-func (cmd *auditContractCmd) runCommand(sct swapContractTransactor) error {
+func (cmd *auditContractCmd) runCommand(sct eth.SwapContractTransactor) error {
 	// unpack input params from contract tx
-	params, err := unpackContractInputParams(sct.abi, cmd.contractTx)
+	params, err := unpackContractInputParams(sct.Abi, cmd.contractTx)
 	if err != nil {
 		return err
 	}
 
-	rpcTransaction := struct {
-		tx          *types.Transaction
-		BlockNumber *string
-		BlockHash   *common.Hash
-		From        *common.Address
-	}{}
-
-	// get transaction by hash
-	contractHash := cmd.contractTx.Hash()
-	ctx := newContext()
-	err = sct.client.rpcClient.CallContext(ctx,
-		&rpcTransaction, "eth_getTransactionByHash", contractHash)
-	ctx.Cancel()
+	output, err := eth.AuditContract(context.Background(), sct, cmd.contractTx)
 	if err != nil {
-		return fmt.Errorf(
-			"failed to find transaction (%x): %v", contractHash, err)
+		return errors.Wrap(err, "could not audit conract")
 	}
-	if rpcTransaction.BlockNumber == nil || *rpcTransaction.BlockNumber == "" || *rpcTransaction.BlockNumber == "0" {
-		return fmt.Errorf("transaction (%x) is pending", contractHash)
-	}
-
-	// get block in order to know the timestamp of the txn
-	ctx = newContext()
-	block, err := sct.client.BlockByHash(ctx, *rpcTransaction.BlockHash)
-	ctx.Cancel()
-	if err != nil {
-		return fmt.Errorf(
-			"failed to find block (%x): %v", rpcTransaction.BlockHash, err)
-	}
-
-	// compute the locktime
-	lockTime := time.Unix(int64(block.Time())+params.LockDuration.Int64(), 0)
 
 	// print contract info
-
 	fmt.Printf("Contract address:        %x\n", cmd.contractTx.To())
 	fmt.Printf("Contract value:          %s ETH\n", formatWeiAsEthString(cmd.contractTx.Value()))
 	fmt.Printf("Recipient address:       %x\n", params.ToAddress)
-	fmt.Printf("Author's refund address: %x\n\n", rpcTransaction.From)
+	fmt.Printf("Author's refund address: %x\n\n", output.RefundAddress)
 
 	fmt.Printf("Secret hash: %x\n\n", params.SecretHash)
 
@@ -779,6 +701,7 @@ func (cmd *auditContractCmd) runCommand(sct swapContractTransactor) error {
 	// the reason we require th node for this method,
 	// is because we need to be able to know the transaction's timestamp
 
+	lockTime := time.Unix(output.Locktime, 0)
 	fmt.Printf("Locktime: %v\n", lockTime.UTC())
 	reachedAt := lockTime.Sub(time.Now().UTC()).Truncate(time.Second)
 	if reachedAt > 0 {
@@ -789,8 +712,9 @@ func (cmd *auditContractCmd) runCommand(sct swapContractTransactor) error {
 	return nil
 }
 
-func (cmd *deployContractCmd) runCommand(sct swapContractTransactor) error {
-	tx, err := sct.deployTx()
+func (cmd *deployContractCmd) runCommand(sct eth.SwapContractTransactor) error {
+	ctx := context.Background()
+	tx, err := sct.DeployTx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create deploy TX: %v", err)
 	}
@@ -799,7 +723,7 @@ func (cmd *deployContractCmd) runCommand(sct swapContractTransactor) error {
 	fmt.Printf("Deploy fee: %s ETH\n\n", formatWeiAsEthString(deployTxCost))
 
 	fmt.Printf("Chain ID:         %s\n", chainConfig.ChainID.String())
-	fmt.Printf("Contract Address: %x\n", sct.contractAddr)
+	fmt.Printf("Contract Address: %x\n", sct.ContractAddr)
 
 	fmt.Printf("Deploy transaction (%x):\n", tx.Hash())
 	txBytes, err := rlp.EncodeToBytes(tx)
@@ -813,7 +737,7 @@ func (cmd *deployContractCmd) runCommand(sct swapContractTransactor) error {
 		return err
 	}
 
-	err = tx.Send()
+	err = tx.Send(ctx)
 	if err != nil {
 		return err
 	}
@@ -821,7 +745,7 @@ func (cmd *deployContractCmd) runCommand(sct swapContractTransactor) error {
 	return nil
 }
 
-func (cmd *validateDeployedContractCmd) runCommand(swapContractTransactor) error {
+func (cmd *validateDeployedContractCmd) runCommand(eth.SwapContractTransactor) error {
 	return cmd.runOfflineCommand()
 }
 
@@ -831,88 +755,6 @@ func (cmd *validateDeployedContractCmd) runOfflineCommand() error {
 	}
 	fmt.Println("Contract is valid")
 	return nil
-}
-
-// newSwapContractTransactor creates a new swapContract instance,
-// see swapContractTransactor for more information
-func newSwapContractTransactor(c *ethClient, contractAddr common.Address) (swapContractTransactor, error) {
-	parsed, err := abi.JSON(strings.NewReader(contract.ContractABI))
-	if err != nil {
-		return swapContractTransactor{}, fmt.Errorf("failed to read (smart) contract ABI: %v", err)
-	}
-	switch account := *accountFlag; {
-	case account == "":
-		var accounts []common.Address
-		ctx := newContext()
-		err := c.rpcClient.CallContext(ctx, &accounts, "eth_accounts")
-		ctx.Cancel()
-		if err != nil {
-			return swapContractTransactor{}, fmt.Errorf("failed to list unlocked accounts: %v", err)
-		}
-		if len(accounts) == 0 {
-			return swapContractTransactor{}, errors.New("no unlocked accounts were found")
-		}
-		// sign using daemon with a random account
-		return swapContractTransactor{
-			abi:          parsed,
-			client:       c,
-			contractAddr: contractAddr,
-			fromAddr:     accounts[0],
-			autoAccount:  true,
-		}, nil
-
-	case common.IsHexAddress(account):
-		// sign using daemon
-		return swapContractTransactor{
-			abi:          parsed,
-			client:       c,
-			contractAddr: contractAddr,
-			fromAddr:     common.HexToAddress(account),
-		}, nil
-
-	default:
-		// sign using given key
-		signer, fromAddr, err := newSigner(account)
-		if err != nil {
-			return swapContractTransactor{}, fmt.Errorf("failed to create tx signer: %v", err)
-		}
-		return swapContractTransactor{
-			abi:          parsed,
-			signer:       signer,
-			client:       c,
-			fromAddr:     fromAddr,
-			contractAddr: contractAddr,
-		}, nil
-	}
-}
-
-// newSigner creates a signer func using the flag-passed
-// private credentials of the sender
-func newSigner(path string) (bind.SignerFn, common.Address, error) {
-	json, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to read encrypted account/key file (%s) content: %v", path, err)
-	}
-	passphrase, err := speakeasy.Ask("Account passphrase: ")
-	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to get passphrase from STDIN: %v", err)
-	}
-	key, err := keystore.DecryptKey(json, passphrase)
-	if err != nil {
-		return nil, common.Address{}, fmt.Errorf("failed to decrypt (JSON) account/key file (%s): %v", path, err)
-	}
-	privKey := key.PrivateKey
-	keyAddr := crypto.PubkeyToAddress(privKey.PublicKey)
-	return func(signer types.Signer, address common.Address, tx *types.Transaction) (*types.Transaction, error) {
-		if address != keyAddr {
-			return nil, errors.New("not authorized to sign this account")
-		}
-		signature, err := crypto.Sign(signer.Hash(tx).Bytes(), privKey)
-		if err != nil {
-			return nil, err
-		}
-		return tx.WithSignature(signer, signature)
-	}, keyAddr, nil
 }
 
 type (
@@ -1224,7 +1066,7 @@ func (sct *swapContractTransactor) newTransactionWithInput(amount *big.Int, cont
 			)
 		}
 		// sign ourselves
-		signedTx, err = opts.Signer(types.HomesteadSigner{}, opts.From, rawTx)
+		signedTx, err = opts.Signer(opts.From, rawTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to sign transaction from client: %v", err)
 		}

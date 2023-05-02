@@ -24,7 +24,7 @@ type (
 
 func AuditContract(ctx context.Context, sct SwapContractTransactor, contractTx *types.Transaction) (AuditContractOutput, error) {
 	// unpack input params from contract tx
-	params, err := unpackContractInputParams(sct.abi, contractTx)
+	params, err := unpackContractInputParams(sct.Abi, contractTx)
 	if err != nil {
 		return AuditContractOutput{}, err
 	}
@@ -38,7 +38,7 @@ func AuditContract(ctx context.Context, sct SwapContractTransactor, contractTx *
 
 	// get transaction by hash
 	contractHash := contractTx.Hash()
-	err = sct.client.rpcClient.CallContext(ctx,
+	err = sct.Client.rpcClient.CallContext(ctx,
 		&rpcTransaction, "eth_getTransactionByHash", contractHash)
 	if err != nil {
 		return AuditContractOutput{}, fmt.Errorf(
@@ -49,7 +49,7 @@ func AuditContract(ctx context.Context, sct SwapContractTransactor, contractTx *
 	}
 
 	// get block in order to know the timestamp of the txn
-	block, err := sct.client.BlockByHash(ctx, *rpcTransaction.BlockHash)
+	block, err := sct.Client.BlockByHash(ctx, *rpcTransaction.BlockHash)
 	if err != nil {
 		return AuditContractOutput{}, fmt.Errorf(
 			"failed to find block (%x): %v", rpcTransaction.BlockHash, err)

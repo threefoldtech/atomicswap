@@ -42,7 +42,7 @@ func Initiate(ctx context.Context, sct SwapContractTransactor, cp2Addr common.Ad
 	return InitiateOutput{
 		Secret:              secret,
 		SecretHash:          secretHash,
-		InitiatorAddress:    sct.fromAddr,
+		InitiatorAddress:    sct.FromAddr,
 		ContractTransaction: *tx.Transaction,
 	}, nil
 }

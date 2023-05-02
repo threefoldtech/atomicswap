@@ -9,7 +9,7 @@ import (
 )
 
 func Refund(ctx context.Context, sct SwapContractTransactor, contractTx *types.Transaction) (common.Hash, error) {
-	params, err := unpackContractInputParams(sct.abi, contractTx)
+	params, err := unpackContractInputParams(sct.Abi, contractTx)
 	if err != nil {
 		return common.Hash{}, err
 	}
