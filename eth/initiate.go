@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type InitiateOutput struct {
@@ -27,17 +26,10 @@ func Initiate(ctx context.Context, sct SwapContractTransactor, cp2Addr common.Ad
 		return InitiateOutput{}, fmt.Errorf("failed to create initiate TX: %v", err)
 	}
 
-	txBytes, err := rlp.EncodeToBytes(tx)
-	if err != nil {
-		return InitiateOutput{}, fmt.Errorf("failed to encode contract TX: %v", err)
-	}
-	fmt.Printf("%x\n\n", txBytes)
-
 	err = tx.Send(ctx)
 	if err != nil {
 		return InitiateOutput{}, err
 	}
-	fmt.Printf("Published contract transaction (%x)\n", tx.Hash())
 
 	return InitiateOutput{
 		Secret:              secret,
