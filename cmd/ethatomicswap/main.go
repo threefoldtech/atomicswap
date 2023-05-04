@@ -402,7 +402,7 @@ func run() (err error, showUsage bool) {
 	if err != nil {
 		return errors.Wrap(err, "could not load account key"), false
 	}
-	sct, err := eth.NewSwapContractTransactor(ctx, client, contractAddr, key)
+	sct, err := eth.NewSwapContractTransactor(ctx, client, contractAddr, key, chainConfig.ChainID)
 	if err != nil {
 		return err, false
 	}

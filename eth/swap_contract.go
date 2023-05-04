@@ -432,7 +432,7 @@ func sha256Hash(x []byte) [sha256.Size]byte {
 
 // newSwapContractTransactor creates a new swapContract instance,
 // see swapContractTransactor for more information
-func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr common.Address, key *ecdsa.PrivateKey) (SwapContractTransactor, error) {
+func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr common.Address, key *ecdsa.PrivateKey, chainID *big.Int) (SwapContractTransactor, error) {
 	parsed, err := abi.JSON(strings.NewReader(contract.ContractABI))
 	if err != nil {
 		return SwapContractTransactor{}, fmt.Errorf("failed to read (smart) contract ABI: %v", err)
@@ -441,7 +441,7 @@ func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr c
 	var signer bind.SignerFn
 	var fromAddr common.Address
 	if key != nil {
-		signer, fromAddr, err = newSigner(key)
+		signer, fromAddr, err = newSigner(key, chainID)
 		if err != nil {
 			return SwapContractTransactor{}, fmt.Errorf("failed to create tx signer: %v", err)
 		}
@@ -457,7 +457,7 @@ func NewSwapContractTransactor(ctx context.Context, c *EthClient, contractAddr c
 
 // newSigner creates a signer func using the flag-passed
 // private credentials of the sender
-func newSigner(privKey *ecdsa.PrivateKey) (bind.SignerFn, common.Address, error) {
+func newSigner(privKey *ecdsa.PrivateKey, chainID *big.Int) (bind.SignerFn, common.Address, error) {
 	// json, err := ioutil.ReadFile(path)
 	// if err != nil {
 	// 	return nil, common.Address{}, fmt.Errorf("failed to read encrypted account/key file (%s) content: %v", path, err)
@@ -480,6 +480,6 @@ func newSigner(privKey *ecdsa.PrivateKey) (bind.SignerFn, common.Address, error)
 			return nil, err
 		}
 		// TODO: is homesteadsigner sufficient?
-		return tx.WithSignature(types.HomesteadSigner{}, signature)
+		return tx.WithSignature(types.NewEIP155Signer(chainID), signature)
 	}, keyAddr, nil
 }
