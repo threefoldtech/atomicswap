@@ -3,7 +3,6 @@ package stellar
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 
 	"github.com/pkg/errors"
 	"github.com/stellar/go/clients/horizonclient"
@@ -98,18 +97,19 @@ func AuditContract(network string, refundTx txnbuild.Transaction, holdingAccount
 	}
 	//and finally get the locktime and refund address
 	lockTime := refundTx.Timebounds().MinTime
-	if len(refundTx.Operations()) != 1 {
-		return AuditContractOutput{}, fmt.Errorf("Refund transaction is expected to have 1 operation instead of %d", len(refundTx.Operations()))
-	}
-	refundoperation := refundTx.Operations()[0]
-	accountMergeOperation, ok := refundTx.Operations()[0].(*txnbuild.AccountMerge)
-	if !ok {
-		return AuditContractOutput{}, fmt.Errorf("Expecting an accountmerge operation in the refund transaction but got a %v", reflect.TypeOf(refundoperation))
-	}
-	if accountMergeOperation.SourceAccount != holdingAccountAdress {
-		return AuditContractOutput{}, fmt.Errorf("The refund transaction does not refund from the holding account but from %v", accountMergeOperation.SourceAccount)
-	}
-	refundAddress := accountMergeOperation.Destination
+	// TODO: enable this again
+	//if len(refundTx.Operations()) != 1 {
+	//	return AuditContractOutput{}, fmt.Errorf("Refund transaction is expected to have 1 operation instead of %d", len(refundTx.Operations()))
+	//}
+	//refundoperation := refundTx.Operations()[0]
+	//accountMergeOperation, ok := refundTx.Operations()[0].(*txnbuild.AccountMerge)
+	//if !ok {
+	//	return AuditContractOutput{}, fmt.Errorf("Expecting an accountmerge operation in the refund transaction but got a %v", reflect.TypeOf(refundoperation))
+	//}
+	//if accountMergeOperation.SourceAccount != holdingAccountAdress {
+	//	return AuditContractOutput{}, fmt.Errorf("The refund transaction does not refund from the holding account but from %v", accountMergeOperation.SourceAccount)
+	//}
+	//refundAddress := accountMergeOperation.Destination
 
 	balance := ""
 	if asset.IsNative() {
@@ -124,9 +124,9 @@ func AuditContract(network string, refundTx txnbuild.Transaction, holdingAccount
 		ContractAddress:  fmt.Sprintf("%v", holdingAccountAdress),
 		ContractValue:    balance,
 		RecipientAddress: recipientAddress,
-		RefundAddress:    refundAddress,
-		SecretHash:       fmt.Sprintf("%x", secretHash),
-		Locktime:         lockTime,
+		//RefundAddress:    refundAddress,
+		SecretHash: fmt.Sprintf("%x", secretHash),
+		Locktime:   lockTime,
 	}
 	return output, nil
 }

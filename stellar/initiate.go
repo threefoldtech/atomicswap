@@ -89,18 +89,21 @@ func createAtomicSwapHoldingAccount(network string, fundingKeyPair *keypair.Full
 	}
 	err = createHoldingAccount(holdingAccountAddress, xlmAmount, fundingKeyPair, network, asset, client)
 	if err != nil {
+		err = errors.Wrap(err, "could not create holding account")
 		return
 	}
 
 	if !asset.IsNative() {
 		err = fundHoldingAccount(network, fundingKeyPair, holdingAccountKeyPair, amount, asset, client)
 		if err != nil {
+			err = errors.Wrap(err, "could not fund holding account")
 			return
 		}
 	}
 
 	refundTransaction, err = createRefundTransaction(holdingAccountAddress, fundingKeyPair.Address(), locktime, client)
 	if err != nil {
+		err = errors.Wrap(err, "could not create refund transaction")
 		return
 	}
 	refundTransactionHash, err := refundTransaction.Hash(network)
@@ -183,6 +186,8 @@ func createHoldingAccountSigningTransaction(holdingAccount *horizon.Account, cou
 			&refundSigningOperation,
 			&setSigningWeightsOperation,
 		},
+		IncrementSequenceNum: true,
+		BaseFee:              200000,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
 		},
@@ -237,8 +242,10 @@ func fundHoldingAccount(network string, fundingKeyPair *keypair.Full, holdingAcc
 	}
 
 	txParams := txnbuild.TransactionParams{
-		SourceAccount: fundingAccount,
-		Operations:    []txnbuild.Operation{&changetrust, &payment},
+		SourceAccount:        fundingAccount,
+		Operations:           []txnbuild.Operation{&changetrust, &payment},
+		IncrementSequenceNum: true,
+		BaseFee:              200000,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(), // Use a real timeout in production!
 		},
@@ -276,8 +283,10 @@ func createRefundTransaction(holdingAccountAddress string, refundAccountAdress s
 	operations := createRedeemOperations(holdingAccount, refundAccountAdress)
 
 	refundTransactionParams := txnbuild.TransactionParams{
-		Operations:    operations,
-		SourceAccount: holdingAccount,
+		Operations:           operations,
+		SourceAccount:        holdingAccount,
+		IncrementSequenceNum: true,
+		BaseFee:              200000,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewTimebounds(locktime.Unix(), int64(0)),
 		},

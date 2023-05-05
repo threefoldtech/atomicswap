@@ -111,9 +111,11 @@ func CreateAccountTransaction(newccountAddress string, xlmAmount string, funding
 		Operations: []txnbuild.Operation{
 			&accountCreationOperation,
 		},
+		IncrementSequenceNum: true,
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewInfiniteTimeout(), //TODO: Use a real timeout
 		},
+		BaseFee: 200000,
 	}
 
 	createAccountTransaction, err = txnbuild.NewTransaction(createAccountTransactionParams)

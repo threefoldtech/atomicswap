@@ -26,8 +26,10 @@ func Redeem(network string, receiverKeyPair *keypair.Full, holdingAccountAddress
 		Preconditions: txnbuild.Preconditions{
 			TimeBounds: txnbuild.NewTimebounds(int64(0), int64(0)),
 		},
-		Operations:    operations,
-		SourceAccount: holdingAccount,
+		Operations:           operations,
+		SourceAccount:        holdingAccount,
+		IncrementSequenceNum: true,
+		BaseFee:              200000,
 	}
 
 	redeemTransaction, err := txnbuild.NewTransaction(redeemTransactionParams)
