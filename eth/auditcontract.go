@@ -3,6 +3,7 @@ package eth
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -20,6 +21,11 @@ type (
 		SecretHash       [sha256.Size]byte `json:"secretHash"`
 		Locktime         int64             `json:"locktime"`
 	}
+)
+
+var (
+	// ErrTxPending indicates a transaction is pending and not yet included in the chain
+	ErrTxPending = errors.New("transaction is pending")
 )
 
 func AuditContract(ctx context.Context, sct SwapContractTransactor, contractTx *types.Transaction) (AuditContractOutput, error) {
@@ -45,7 +51,7 @@ func AuditContract(ctx context.Context, sct SwapContractTransactor, contractTx *
 			"failed to find transaction (%x): %v", contractHash, err)
 	}
 	if rpcTransaction.BlockNumber == nil || *rpcTransaction.BlockNumber == "" || *rpcTransaction.BlockNumber == "0" {
-		return AuditContractOutput{}, fmt.Errorf("transaction (%x) is pending", contractHash)
+		return AuditContractOutput{}, ErrTxPending
 	}
 
 	// get block in order to know the timestamp of the txn
