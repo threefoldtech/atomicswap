@@ -475,11 +475,11 @@ func newSigner(privKey *ecdsa.PrivateKey, chainID *big.Int) (bind.SignerFn, comm
 		if address != keyAddr {
 			return nil, errors.New("not authorized to sign this account")
 		}
-		signature, err := crypto.Sign(tx.Hash().Bytes(), privKey)
+		s := types.NewEIP155Signer(chainID)
+		signature, err := crypto.Sign(s.Hash(tx).Bytes(), privKey)
 		if err != nil {
 			return nil, err
 		}
-		// TODO: is homesteadsigner sufficient?
-		return tx.WithSignature(types.NewEIP155Signer(chainID), signature)
+		return tx.WithSignature(s, signature)
 	}, keyAddr, nil
 }
